@@ -1,6 +1,6 @@
-# Developer Sandbox Dashboard
+# Developer Sandbox Plugin for Red Hat Developer Hub
 
-The Developer Sandbox Dashboard is implemented as a Red Hat Developer Hub plugin, providing the new developer sandbox experience.
+This plugin provides the new developer sandbox experience for the Red Hat Developer Hub.
 
 ## Configuration
 
@@ -25,8 +25,9 @@ yarn backstage-repo-tools knip-reports
 
 To start the app locally, run:
 
-1. `yarn install`
-2. `make start-rhdh-local`
+1. `cd workspaces/sandbox`
+2. `yarn install`
+3. `make start-rhdh-local`
 
 Please, note that every time you want to re deploy, you need to run:
 `make stop-rhdh-local`
