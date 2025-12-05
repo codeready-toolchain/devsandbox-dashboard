@@ -26,7 +26,6 @@
     "lint:fix": "backstage-cli package lint --fix",
     "prettier:check": "prettier --check .",
     "new": "backstage-cli new --scope @red-hat-developer-hub",
-    "postinstall": "cd ../../ && yarn install",
     "test:base": "playwright test --config=sandboxplaywright.config.ts",
     "tests": "npm run test:base",
     "test:ui": "npm run test:base -- --ui",
