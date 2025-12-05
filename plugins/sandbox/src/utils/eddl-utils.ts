@@ -97,9 +97,9 @@ export const useTrackAnalytics = () => {
       linkType: 'cta' | 'default' = 'default',
     ) => {
       // Adobe EDDL tracking for CTA events
-      if (linkType === 'cta') {
-        pushCtaEvent(itemName, section, href, internalCampaign);
-      }
+      // if (linkType === 'cta') {
+      //   pushCtaEvent(itemName, section, href, internalCampaign);
+      // }
 
       // Segment tracking (if available from context)
       if (segmentTrackClick) {
