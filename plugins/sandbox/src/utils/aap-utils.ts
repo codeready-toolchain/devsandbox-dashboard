@@ -262,7 +262,7 @@ export const AAPObject: string = `
                },
                "limits":{
                   "cpu":"500m",
-                  "memory":"400Mi"
+                  "memory":"500Mi"
                }
             }
          },
