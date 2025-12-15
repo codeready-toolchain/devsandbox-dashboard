@@ -33,7 +33,7 @@ test-e2e-in-container: get-e2e-repo
 
 .PHONY: clean-e2e
 clean-e2e: get-e2e-repo
-    $(MAKE) -C ${E2E_REPO_PATH} clean-devsandbox-dashboard
+	$(MAKE) -C ${E2E_REPO_PATH} clean-devsandbox-dashboard
 
 .PHONY: get-e2e-repo
 get-e2e-repo:
