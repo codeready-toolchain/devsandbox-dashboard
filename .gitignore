@@ -66,3 +66,6 @@ index.json
 **/playwright-report/
 **/blob-report/
 **/playwright/.cache/
+
+# toolchain-e2e
+.toolchain-e2e/
