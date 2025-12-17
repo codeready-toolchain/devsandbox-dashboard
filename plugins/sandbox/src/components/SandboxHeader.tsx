@@ -113,12 +113,6 @@ export const SandboxHeader: React.FC<SandboxHeaderProps> = ({ pageTitle }) => {
       <Box
         sx={{ display: { xs: 'none', sm: 'none', md: 'block', lg: 'block' } }}
       >
-        <Link
-          to="https://www.redhat.com/en/contact"
-          underline="none"
-          target="_blank"
-          onClick={handleContactSalesClick}
-        >
           <Button
             variant="outlined"
             color="primary"
@@ -134,9 +128,19 @@ export const SandboxHeader: React.FC<SandboxHeaderProps> = ({ pageTitle }) => {
               },
             }}
           >
+
+          <Link
+           to="https://www.redhat.com/en/contact"
+           underline="none"
+           target="_blank"
+           onClick={handleContactSalesClick}
+           data-analytics-linktype="cta"
+           data-analytics-text="Contact Red Hat Sales"
+           data-analytics-category="Developer Sandbox|Support"
+          >
             Contact Red Hat Sales
+          </Link>
           </Button>
-        </Link>
       </Box>
     </Header>
   );
