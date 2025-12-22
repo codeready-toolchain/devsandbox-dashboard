@@ -335,12 +335,12 @@ export const AAPObject: string = `
             "replicas":1,
             "resource_requirements":{
                "requests":{
-                  "cpu":"25m",
-                  "memory":"150Mi"
+                  "cpu":"50m",
+                  "memory":"300Mi"
                },
                "limits":{
-                  "cpu":"100m",
-                  "memory":"300Mi"
+                  "cpu":"150m",
+                  "memory":"600Mi"
                }
             }
          }
