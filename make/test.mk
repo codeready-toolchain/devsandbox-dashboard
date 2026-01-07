@@ -6,7 +6,6 @@
 
 E2E_REPO_PATH := ""
 
-
 .PHONY: test-e2e-local
 test-e2e-local:
 	$(MAKE) test-e2e E2E_REPO_PATH=${PWD}/../toolchain-e2e
