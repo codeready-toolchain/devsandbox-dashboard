@@ -113,30 +113,33 @@ export const SandboxHeader: React.FC<SandboxHeaderProps> = ({ pageTitle }) => {
       <Box
         sx={{ display: { xs: 'none', sm: 'none', md: 'block', lg: 'block' } }}
       >
-        <Link
-          to="https://www.redhat.com/en/contact"
-          underline="none"
-          target="_blank"
-          onClick={handleContactSalesClick}
+        <Button
+          variant="outlined"
+          color="primary"
+          startIcon={<SupportAgentIcon />}
+          endIcon={<OpenInNewIcon />}
+          sx={{
+            textTransform: 'none',
+            marginRight: theme.spacing(2),
+            border: `1px solid ${theme.palette.primary.main}`,
+            '&:hover': {
+              backgroundColor: 'rgba(25, 118, 210, 0.04)',
+              borderColor: '#1976d2',
+            },
+          }}
         >
-          <Button
-            variant="outlined"
-            color="primary"
-            startIcon={<SupportAgentIcon />}
-            endIcon={<OpenInNewIcon />}
-            sx={{
-              textTransform: 'none',
-              marginRight: theme.spacing(2),
-              border: `1px solid ${theme.palette.primary.main}`,
-              '&:hover': {
-                backgroundColor: 'rgba(25, 118, 210, 0.04)',
-                borderColor: '#1976d2',
-              },
-            }}
+          <Link
+            to="https://www.redhat.com/en/contact"
+            underline="none"
+            target="_blank"
+            onClick={handleContactSalesClick}
+            data-analytics-linktype="cta"
+            data-analytics-text="Contact Red Hat Sales"
+            data-analytics-category="Developer Sandbox|Support"
           >
             Contact Red Hat Sales
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </Box>
     </Header>
   );
