@@ -21,7 +21,6 @@ import CardMedia from '@mui/material/CardMedia';
 import { useTheme } from '@mui/material/styles';
 import { Link } from '@backstage/core-components';
 import {
-  getEddlDataAttributes,
   useTrackAnalytics,
 } from '../../utils/eddl-utils';
 
