@@ -37,7 +37,6 @@ export const useTrackAnalytics = () => {
       internalCampaign?: string,
       linkType: 'cta' | 'default' = 'default',
     ) => {
-
       // Segment tracking (if available from context)
       if (segmentTrackClick) {
         try {

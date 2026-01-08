@@ -20,9 +20,7 @@ import Typography from '@mui/material/Typography';
 import CardMedia from '@mui/material/CardMedia';
 import { useTheme } from '@mui/material/styles';
 import { Link } from '@backstage/core-components';
-import {
-  useTrackAnalytics,
-} from '../../utils/eddl-utils';
+import { useTrackAnalytics } from '../../utils/eddl-utils';
 
 type SandboxActivitiesCardProps = {
   article: {
@@ -50,8 +48,8 @@ export const SandboxActivitiesCard: React.FC<SandboxActivitiesCardProps> = ({
       onClick={handleActivityClick}
       style={{ textDecoration: 'none' }}
       data-analytics-linktype="cta"
-      data-analytics-category= "Developer Sandbox|Activities"
-      data-analytics-text = {title}
+      data-analytics-category="Developer Sandbox|Activities"
+      data-analytics-text={title}
       data-analytics-region="sandbox-activities"
     >
       <Card

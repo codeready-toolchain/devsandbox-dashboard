@@ -125,10 +125,7 @@ describe('SandboxActivitiesCard', () => {
 
       const linkElement = screen.getByRole('link');
 
-      expect(linkElement).toHaveAttribute(
-        'data-analytics-linktype',
-        'cta',
-      );
+      expect(linkElement).toHaveAttribute('data-analytics-linktype', 'cta');
       expect(linkElement).toHaveAttribute(
         'data-analytics-category',
         'Developer Sandbox|Activities',

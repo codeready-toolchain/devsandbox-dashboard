@@ -221,7 +221,6 @@ describe('SandboxCatalogCardButton', () => {
   });
 
   describe('CTA Event Pushing and Analytics Data Attributes', () => {
-
     it('should push CTA event with correct product details and verify analytics data attributes for different products', () => {
       const testCases = [
         {
@@ -270,14 +269,23 @@ describe('SandboxCatalogCardButton', () => {
         const { unmount } = renderButton({ id, title });
 
         const button = screen.getByRole('button');
-        
+
         // Verify analytics data attributes
         expect(button).toHaveAttribute('data-analytics-linktype', 'cta');
         expect(button).toHaveAttribute('data-analytics-text', expectedLabel);
-        expect(button).toHaveAttribute('data-analytics-category', `Developer Sandbox|Catalog|${title}`);
-        expect(button).toHaveAttribute('data-analytics-region', 'sandbox-catalog');
-        expect(button).toHaveAttribute('data-analytics-offerid', expectedIntcmp);
-        
+        expect(button).toHaveAttribute(
+          'data-analytics-category',
+          `Developer Sandbox|Catalog|${title}`,
+        );
+        expect(button).toHaveAttribute(
+          'data-analytics-region',
+          'sandbox-catalog',
+        );
+        expect(button).toHaveAttribute(
+          'data-analytics-offerid',
+          expectedIntcmp,
+        );
+
         // Verify CTA tracking
         fireEvent.click(button);
 
@@ -307,9 +315,15 @@ describe('SandboxCatalogCardButton', () => {
       const link = screen.getByRole('link');
       expect(link).toHaveAttribute('data-analytics-linktype', 'cta');
       expect(link).toHaveAttribute('data-analytics-text', 'Try it');
-      expect(link).toHaveAttribute('data-analytics-category', 'Developer Sandbox|Catalog|OpenShift Console');
+      expect(link).toHaveAttribute(
+        'data-analytics-category',
+        'Developer Sandbox|Catalog|OpenShift Console',
+      );
       expect(link).toHaveAttribute('data-analytics-region', 'sandbox-catalog');
-      expect(link).toHaveAttribute('data-analytics-offerid', '701Pe00000dnCEYIA2');
+      expect(link).toHaveAttribute(
+        'data-analytics-offerid',
+        '701Pe00000dnCEYIA2',
+      );
     });
   });
 });
