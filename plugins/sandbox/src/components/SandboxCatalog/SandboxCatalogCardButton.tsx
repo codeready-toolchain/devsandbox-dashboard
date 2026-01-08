@@ -118,7 +118,7 @@ export const SandboxCatalogCardButton: React.FC<
     await trackAnalytics(title, 'Catalog', link, intcmp, 'cta');
   };
 
-  const buttonContent = (
+  return userFound && !loading && !verificationRequired ? (
     <Button
       size="medium"
       color="primary"
@@ -131,19 +131,19 @@ export const SandboxCatalogCardButton: React.FC<
       endIcon={endIcon}
       sx={buttonSx}
     >
-      {label}
+      <Link
+        to={link}
+        underline="none"
+        onClick={handleCtaClick}
+        data-analytics-linktype="cta"
+        data-analytics-text={label}
+        data-analytics-category={`Developer Sandbox|Catalog|${title}`}
+        data-analytics-region="sandbox-catalog"
+        data-analytics-offerid={intcmp}
+      >
+        {label}
+      </Link>
     </Button>
-  );
-
-  return userFound && !loading && !verificationRequired ? (
-    <Link
-      to={link}
-      underline="none"
-      onClick={handleCtaClick}
-      data-analytics-track-by-analytics-manager="false"
-    >
-      {buttonContent}
-    </Link>
   ) : (
     // When there's no link, we push CTA event on button click
     <Button
@@ -158,7 +158,11 @@ export const SandboxCatalogCardButton: React.FC<
       }}
       endIcon={endIcon}
       sx={buttonSx}
-      data-analytics-track-by-analytics-manager="false"
+      data-analytics-linktype="cta"
+      data-analytics-text={label}
+      data-analytics-category={`Developer Sandbox|Catalog|${title}`}
+      data-analytics-region="sandbox-catalog"
+      data-analytics-offerid={intcmp}
     >
       {label}
     </Button>
