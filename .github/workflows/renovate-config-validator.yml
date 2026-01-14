@@ -1,0 +1,26 @@
+name: PR Renovate Config Validator
+
+on:
+  pull_request:
+    paths:
+      - '.github/renovate.json'
+      - '.github/renovate-action.json'
+    # Renovate always uses the config from the repository default branch
+    # https://docs.renovatebot.com/configuration-options/
+    branches: [ 'main' ]
+
+jobs:
+  renovate-config-validator:
+    runs-on: ubuntu-latest
+    name: Renovate Config Validator
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate renovate.json config
+        # See https://docs.renovatebot.com/config-validation/
+        run: |
+          npx --yes --package renovate -- renovate-config-validator --strict .github/renovate.json
+      
+      - name: Validate renovate-action.json config
+        if: always()
+        run: |
+          npx --yes --package renovate -- renovate-config-validator --strict .github/renovate-action.json

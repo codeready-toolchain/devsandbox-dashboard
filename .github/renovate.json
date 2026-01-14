@@ -1,0 +1,88 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:best-practices",
+    ":gitSignOff",
+    ":rebaseStalePrs",
+    "group:linters",
+    "group:test",
+    ":preserveSemverRanges"
+  ],
+  "ignorePresets": [
+    ":pinDevDependencies",
+    ":pinDigest",
+    "docker:pinDigests",
+    "group:monorepos"
+  ],
+  "labels": ["dependencies"],
+  "automerge": false,
+  "postUpdateOptions": ["yarnDedupeHighest"],
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["dependencies", "security"]
+  },
+  "npm": {
+    "minimumReleaseAge": "3 days"
+  },
+  "major": {
+    "dependencyDashboardApproval": true
+  },
+  "packageRules": [
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions"
+    },
+    {
+      "matchPackageNames": ["node-fetch"],
+      "allowedVersions": "<3.0.0"
+    },
+    {
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "~5.3.0"
+    },
+    {
+      "matchPackageNames": ["yn"],
+      "allowedVersions": "<5.0.0"
+    },
+    {
+      "description": "Group all patch updates",
+      "matchUpdateTypes": ["patch"],
+      "matchDepTypes": ["dependencies", "peerDependencies"],
+      "groupName": "Dependencies (patch)"
+    },
+    {
+      "description": "Group all minor updates",
+      "matchUpdateTypes": ["minor"],
+      "matchDepTypes": ["dependencies", "peerDependencies"],
+      "groupName": "Dependencies (minor)"
+    },
+    {
+      "description": "Group all dev dependency patch updates",
+      "matchUpdateTypes": ["patch"],
+      "matchDepTypes": ["devDependencies"],
+      "groupName": "Dev Dependencies (patch)"
+    },
+    {
+      "description": "Group all dev dependency minor updates",
+      "matchUpdateTypes": ["minor"],
+      "matchDepTypes": ["devDependencies"],
+      "groupName": "Dev Dependencies (minor)"
+    },
+    {
+      "description": "Workspace packages",
+      "matchFileNames": ["plugins/*/package.json"],
+      "addLabels": ["plugin/sandbox"]
+    },
+    {
+      "groupName": "Upstream Backstage packages",
+      "enabled": false,
+      "matchDepNames": ["/^@backstage//", "/^@backstage-community//"]
+    }
+  ],
+  "ignorePaths": [
+    "**/dist-dynamic/**",
+    "**/node_modules/**",
+    "**/dist/**"
+  ]
+}
