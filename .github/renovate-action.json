@@ -1,6 +1,6 @@
 {
   "platform": "github",
   "forkProcessing": "disabled",
-  "repositories": ["redhat-developer/devsandbox-dashboard"],
+  "repositories": ["codeready-toolchain/devsandbox-dashboard"],
   "gitAuthor": "Renovate Bot <bot@renovateapp.com>"
 }
