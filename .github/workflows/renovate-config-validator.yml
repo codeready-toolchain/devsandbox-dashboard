@@ -7,7 +7,7 @@ on:
       - '.github/renovate-action.json'
     # Renovate always uses the config from the repository default branch
     # https://docs.renovatebot.com/configuration-options/
-    branches: [ 'main' ]
+    branches: [ 'master' ]
 
 jobs:
   renovate-config-validator:
