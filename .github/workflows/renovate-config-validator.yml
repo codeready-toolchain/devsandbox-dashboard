@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Renovate Config Validator
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Validate renovate.json config
         # See https://docs.renovatebot.com/config-validation/
         run: |
