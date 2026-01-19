@@ -80,9 +80,5 @@
       "matchDepNames": ["/^@backstage//", "/^@backstage-community//"]
     }
   ],
-  "ignorePaths": [
-    "**/dist-dynamic/**",
-    "**/node_modules/**",
-    "**/dist/**"
-  ]
+  "ignorePaths": ["**/dist-dynamic/**", "**/node_modules/**", "**/dist/**"]
 }
