@@ -1271,9 +1271,14 @@
     lodash "^4.17.21"
 
 "@backstage/cli-common@^0.1.15":
-  version "0.1.15"
-  resolved "https://registry.yarnpkg.com/@backstage/cli-common/-/cli-common-0.1.15.tgz#20ea69cdee5025bdbdba38492ec174b1d8d470e3"
-  integrity sha512-z+jMq5h+J1ruZ0IC610QFfSQxLk3IGSL1pZ/xnEIbyohaak+eeOZCyNzKBLwQrBDnIFCdmMoq69/Vrejo2hPeA==
+  version "0.1.17"
+  resolved "https://registry.yarnpkg.com/@backstage/cli-common/-/cli-common-0.1.17.tgz#88c4a382c096344bad7dd084c5ce6ca2963163fa"
+  integrity sha512-CssL1xZj0YEgrY6yKZ0zG0gX15UCE7w0Q69GZ+KLvvXqdOdG9ODo862RrLnzUFKYAWrBthaung27G1amVe69ZA==
+  dependencies:
+    "@backstage/errors" "^1.2.7"
+    cross-spawn "^7.0.3"
+    global-agent "^3.0.0"
+    undici "^7.2.3"
 
 "@backstage/cli-node@^0.2.13":
   version "0.2.15"
