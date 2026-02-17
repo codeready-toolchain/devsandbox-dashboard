@@ -206,8 +206,8 @@ describe('PhoneNumberStep', () => {
     const phoneInput = screen.getByTestId('tel-input');
     const inputElement = phoneInput.querySelector('input');
 
-    // When user types +1, the onCountryChange should be triggered
-    fireEvent.change(inputElement!, { target: { value: '+1' } });
+    // When user types the phone number with country code, the onCountryChange should be triggered
+    fireEvent.change(inputElement!, { target: { value: '+1 202 555 0100' } });
 
     // Wait for any async operations
     await waitFor(() => {
@@ -215,8 +215,8 @@ describe('PhoneNumberStep', () => {
       expect(mockSetPhoneNumber).toHaveBeenCalled();
     });
 
-    // Note: The actual country change is handled by the react-phone-number-input library
-    // This test verifies that the onCountryChange prop is passed to the component
+    // country should update when a country code is typed
+    expect(mockSetCountry).toHaveBeenCalled();
   });
 
   describe('Analytics tracking', () => {
