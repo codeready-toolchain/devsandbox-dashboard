@@ -19,7 +19,6 @@ import Button from '@mui/material/Button';
 import { Theme } from '@mui/material/styles';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CircularProgress from '@mui/material/CircularProgress';
-import { Link } from '@backstage/core-components';
 import { useSandboxContext } from '../../hooks/useSandboxContext';
 import { AnsibleStatus } from '../../utils/aap-utils';
 import { Product } from './productData';
@@ -113,36 +112,33 @@ export const SandboxCatalogCardButton: React.FC<
 
   const intcmp = getIntcmpFromProduct(id);
 
-  // Handle CTA click for analytics
-  const handleCtaClick = async () => {
-    await trackAnalytics(title, 'Catalog', link, intcmp, 'cta');
-  };
-
   return userFound && !loading && !verificationRequired ? (
     <Button
       size="medium"
       color="primary"
       variant="outlined"
+      // For non-AAP products, href makes MUI render an <a> tag so dpal.js can
+      // read href/isExitLink/targetHost. target="_blank" lets the browser open
+      // the tab natively without depending on dpal.js re-navigation.
+      // AAP has no href — it uses handleTryButtonClick for its own modal flow.
+      {...(id !== Product.AAP
+        ? { href: link, target: '_blank', rel: 'noopener noreferrer' }
+        : {})}
       onClick={() => {
         if (!loading) {
           handleClick();
+          trackAnalytics(title, 'Catalog', link, intcmp, 'cta');
         }
       }}
       endIcon={endIcon}
       sx={buttonSx}
+      data-analytics-linktype="cta"
+      data-analytics-text={label}
+      data-analytics-category={`Developer Sandbox|Catalog|${title}`}
+      data-analytics-region="sandbox-catalog"
+      data-analytics-offerid={intcmp}
     >
-      <Link
-        to={link}
-        underline="none"
-        onClick={handleCtaClick}
-        data-analytics-linktype="cta"
-        data-analytics-text={label}
-        data-analytics-category={`Developer Sandbox|Catalog|${title}`}
-        data-analytics-region="sandbox-catalog"
-        data-analytics-offerid={intcmp}
-      >
-        {label}
-      </Link>
+      {label}
     </Button>
   ) : (
     // When there's no link, we push CTA event on button click
@@ -153,7 +149,7 @@ export const SandboxCatalogCardButton: React.FC<
       onClick={() => {
         if (!loading) {
           handleClick();
-          handleCtaClick();
+          trackAnalytics(title, 'Catalog', link, intcmp, 'cta');
         }
       }}
       endIcon={endIcon}
