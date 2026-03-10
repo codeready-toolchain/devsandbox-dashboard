@@ -41,6 +41,7 @@ export interface RegistrationService {
   verifyActivationCode(code: string): Promise<void>;
   getSegmentWriteKey(): Promise<string>;
   getUIConfig(): Promise<UIConfig>;
+  resetWorkspaces(): Promise<void>;
 }
 
 export class RegistrationBackendClient implements RegistrationService {
@@ -235,6 +236,29 @@ export class RegistrationBackendClient implements RegistrationService {
     } catch (error) {
       // Return empty config on any error - UI config is optional
       return {};
+    }
+  };
+
+  // resetWorkspaces calls the registration service to request a workspace
+  // reset for the current user that is logged in in the UI.
+  resetWorkspaces = async (): Promise<void> => {
+    //const signupAPI = this.configApi.getString('sandbox.signupAPI')
+    const signupAPI = 'http://localhost:9999';
+    let response: Response;
+    try {
+      response = await fetch(`${signupAPI}/reset-workspaces`, {
+        method: 'POST',
+      });
+      //response = await this.secureFetchApi.fetch(`${signupAPI}/reset-workspaces`, {method: 'POST'})
+    } catch (e) {
+      throw new Error(
+        'Unable to reset your workspaces. Please, try again later, and if your issue persists, contact support at devsandbox@redhat.com',
+      );
+    }
+
+    if (!response.ok) {
+      const error: CommonResponse = await response.json();
+      throw new Error(error.details);
     }
   };
 }
