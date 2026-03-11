@@ -242,14 +242,10 @@ export class RegistrationBackendClient implements RegistrationService {
   // resetWorkspaces calls the registration service to request a workspace
   // reset for the current user that is logged in in the UI.
   resetWorkspaces = async (): Promise<void> => {
-    //const signupAPI = this.configApi.getString('sandbox.signupAPI')
-    const signupAPI = 'http://localhost:9999';
+    const signupAPI = this.configApi.getString('sandbox.signupAPI')
     let response: Response;
     try {
-      response = await fetch(`${signupAPI}/reset-workspaces`, {
-        method: 'POST',
-      });
-      //response = await this.secureFetchApi.fetch(`${signupAPI}/reset-workspaces`, {method: 'POST'})
+      response = await this.secureFetchApi.fetch(`${signupAPI}/reset-workspaces`, {method: 'POST'})
     } catch (e) {
       throw new Error(
         'Unable to reset your workspaces. Please, try again later, and if your issue persists, contact support at devsandbox@redhat.com',
