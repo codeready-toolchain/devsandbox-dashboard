@@ -14,8 +14,26 @@ import {
 import React from 'react';
 import { registerApiRef } from '../../api';
 import { errorMessage } from '../../utils/common';
-import { SandboxResetButton } from './SandboxResetButton';
 import ResetButtonState from './SandboxResetButtonState';
+
+/**
+ * Decides which label is the correct one depending on the state of the reset
+ * button, that is, how many times it has been clicked by the user.
+ * @param state the state in which the reset button is right now.
+ * @returns the corresponding label for the reset button.
+ */
+const getResetButtonLabel = (
+  state: ResetButtonState,
+): string => {
+  switch (state) {
+    case ResetButtonState.CLICKED:
+        return 'I understand and I want to reset my workspaces';
+    case ResetButtonState.SUBMITTING:
+      return 'Resetting...';
+    default:
+      return 'Reset';
+  }
+};
 
 /**
  * A component that is intended to be used in the "profile" dropdown of the
@@ -109,11 +127,14 @@ const SandboxResetLink = () => {
             </Alert>
           )}
           <DialogActions>
-            <SandboxResetButton
-              handleResetButtonClick={handleResetButtonClick}
-              isResetModalOpen={isModalOpen}
-              resetButtonState={resetButtonState}
-            />
+            <Button
+              onClick={handleResetButtonClick}
+              variant="outlined"
+              color="error"
+              disabled={resetButtonState === ResetButtonState.SUBMITTING}
+            >
+              {getResetButtonLabel(resetButtonState)}
+            </Button>
             <Button onClick={handleCancel} variant="contained" autoFocus>
               Cancel
             </Button>
