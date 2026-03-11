@@ -327,4 +327,40 @@ describe('RegistrationBackendClient', () => {
       expect(result).toEqual({});
     });
   });
+
+  describe('reset user namespaces', () => {
+    it('returns a generic error when there\'s an unexpected error', async () => {
+      const expectedError = 'Unable to reset your workspaces. Please, try again later, and if your issue persists, contact support at devsandbox@redhat.com';
+
+      // Call the functi
+      mockConfigApi.getString.mockReturnValue('http://api');
+      mockSecureFetchApi.fetch.mockRejectedValue(new Error('Network failure'));
+
+      // Call the function under test and check that it throws a generic error.
+      await expect(client.resetWorkspaces()).rejects.toThrow(expectedError);
+    });
+
+    it('returns the response\'s error details when the status code is not trueish', async () => {
+      const mockResponseErrorFromBackend = {
+        details: 'the back end failed because of x, y and z'
+      };
+
+      // Simulate the back end returns an error.
+      mockConfigApi.getString.mockReturnValue('http://api');
+      mockSecureFetchApi.fetch.mockResolvedValue(
+        createMockResponse({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve(mockResponseErrorFromBackend),
+        }),
+      );
+
+      // Call the function under test and assert that the function under test
+      // threw an exception with the message from the "detail" key of the
+      // response body.
+      await expect(client.resetWorkspaces()).rejects.toThrow(
+        mockResponseErrorFromBackend.details,
+      );
+    });
+  });
 });
