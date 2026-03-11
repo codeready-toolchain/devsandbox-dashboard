@@ -345,7 +345,7 @@ describe('RegistrationBackendClient', () => {
 
     it("returns the response's error details when they are present and the status code is not trueish", async () => {
       const mockResponseErrorFromBackend = {
-        details: 'the back end failed because of x, y and z'
+        details: 'the back end failed because of x, y and z',
       };
 
       // Simulate the back end returns an error.

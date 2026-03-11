@@ -22,12 +22,10 @@ import ResetButtonState from './SandboxResetButtonState';
  * @param state the state in which the reset button is right now.
  * @returns the corresponding label for the reset button.
  */
-const getResetButtonLabel = (
-  state: ResetButtonState,
-): string => {
+const getResetButtonLabel = (state: ResetButtonState): string => {
   switch (state) {
     case ResetButtonState.CLICKED:
-        return 'I understand and I want to reset my workspaces';
+      return 'I understand and I want to reset my workspaces';
     case ResetButtonState.SUBMITTING:
       return 'Resetting...';
     default:
