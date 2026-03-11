@@ -329,18 +329,21 @@ describe('RegistrationBackendClient', () => {
   });
 
   describe('reset user namespaces', () => {
-    it('returns a generic error when there\'s an unexpected error', async () => {
-      const expectedError = 'Unable to reset your workspaces. Please, try again later, and if your issue persists, contact support at devsandbox@redhat.com';
+    const expectedGenericError =
+      'Unable to reset your workspaces. Please, try again later, and if your issue persists, contact support at devsandbox@redhat.com';
 
+    it("returns a generic error when there's an unexpected error", async () => {
       // Call the functi
       mockConfigApi.getString.mockReturnValue('http://api');
       mockSecureFetchApi.fetch.mockRejectedValue(new Error('Network failure'));
 
       // Call the function under test and check that it throws a generic error.
-      await expect(client.resetWorkspaces()).rejects.toThrow(expectedError);
+      await expect(client.resetWorkspaces()).rejects.toThrow(
+        expectedGenericError,
+      );
     });
 
-    it('returns the response\'s error details when the status code is not trueish', async () => {
+    it("returns the response's error details when they are present and the status code is not trueish", async () => {
       const mockResponseErrorFromBackend = {
         details: 'the back end failed because of x, y and z'
       };
@@ -360,6 +363,25 @@ describe('RegistrationBackendClient', () => {
       // response body.
       await expect(client.resetWorkspaces()).rejects.toThrow(
         mockResponseErrorFromBackend.details,
+      );
+    });
+
+    it("returns a gener error when the response's error details are not present and the status code is not trueish", async () => {
+      // Simulate the back end returns an error.
+      mockConfigApi.getString.mockReturnValue('http://api');
+      mockSecureFetchApi.fetch.mockResolvedValue(
+        createMockResponse({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({}),
+        }),
+      );
+
+      // Call the function under test and assert that the function under test
+      // threw an exception with the message from the "detail" key of the
+      // response body.
+      await expect(client.resetWorkspaces()).rejects.toThrow(
+        expectedGenericError,
       );
     });
   });

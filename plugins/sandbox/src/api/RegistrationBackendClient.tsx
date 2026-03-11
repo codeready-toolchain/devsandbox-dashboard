@@ -242,19 +242,29 @@ export class RegistrationBackendClient implements RegistrationService {
   // resetWorkspaces calls the registration service to request a workspace
   // reset for the current user that is logged in in the UI.
   resetWorkspaces = async (): Promise<void> => {
-    const signupAPI = this.configApi.getString('sandbox.signupAPI')
+    const signupAPI = this.configApi.getString('sandbox.signupAPI');
+    const genericError =
+      'Unable to reset your workspaces. Please, try again later, and if your issue persists, contact support at devsandbox@redhat.com';
+
     let response: Response;
     try {
-      response = await this.secureFetchApi.fetch(`${signupAPI}/reset-workspaces`, {method: 'POST'})
-    } catch (e) {
-      throw new Error(
-        'Unable to reset your workspaces. Please, try again later, and if your issue persists, contact support at devsandbox@redhat.com',
+      response = await this.secureFetchApi.fetch(
+        `${signupAPI}/reset-workspaces`,
+        { method: 'POST' },
       );
+    } catch {
+      throw new Error(genericError);
     }
 
     if (!response.ok) {
-      const error: CommonResponse = await response.json();
-      throw new Error(error.details);
+      let details: string | undefined;
+      try {
+        const body: CommonResponse = await response.json();
+        details = body?.details;
+      } catch {
+        // JSON parsing failed — fall through to throw generic error
+      }
+      throw new Error(details || genericError);
     }
   };
 }
