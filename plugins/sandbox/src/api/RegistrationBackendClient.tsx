@@ -249,7 +249,7 @@ export class RegistrationBackendClient implements RegistrationService {
     let response: Response;
     try {
       response = await this.secureFetchApi.fetch(
-        `${signupAPI}/reset-workspaces`,
+        `${signupAPI}/reset-namespaces`,
         { method: 'POST' },
       );
     } catch {
