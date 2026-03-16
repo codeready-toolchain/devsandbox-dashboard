@@ -21,6 +21,7 @@ import {
   discoveryApiRef,
   configApiRef,
   oauthRequestApiRef,
+  createComponentExtension,
 } from '@backstage/core-plugin-api';
 import { OAuth2 } from '@backstage/core-app-api';
 import { rootRouteRef } from './routes';
@@ -149,6 +150,23 @@ export const RHSSOSignInPage = sandboxPlugin.provide(
         m => m.RHSSOSignInPage,
       ),
     mountPoint: rootRouteRef,
+  }),
+);
+
+/**
+ * Sandbox menu link to reset the user's workspaces. It opens a modal which
+ * forces the user to confirm the operation.
+ * @public
+ */
+export const SandboxResetWorkspacesLink = sandboxPlugin.provide(
+  createComponentExtension({
+    name: 'SandboxResetWorkspacesLink',
+    component: {
+      lazy: () =>
+        import(
+          './components/SandboxResetWorkspaces/SandboxResetWorkspacesLink'
+        ).then(m => m.default),
+    },
   }),
 );
 
