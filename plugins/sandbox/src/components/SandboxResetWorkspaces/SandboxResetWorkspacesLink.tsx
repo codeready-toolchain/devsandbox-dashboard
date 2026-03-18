@@ -15,6 +15,7 @@ import React from 'react';
 import { registerApiRef } from '../../api';
 import { errorMessage } from '../../utils/common';
 import ResetButtonState from './SandboxResetButtonState';
+import { useSandboxContext } from '../../hooks/useSandboxContext';
 
 /**
  * Decides which label is the correct one depending on the state of the reset
@@ -46,6 +47,8 @@ const SandboxResetLink = () => {
 
   const alertApi = useApi(alertApiRef);
   const signupApi = useApi(registerApiRef);
+
+  const sandboxContext = useSandboxContext();
 
   // Since our custom link is wrapped in a Menu component, we want to prevent
   // the default behavior and propagation of any events, so that it works as
@@ -93,11 +96,19 @@ const SandboxResetLink = () => {
 
   return (
     <React.Fragment>
-      <MenuItem onClick={handleMenuLinkClick} style={{ minHeight: '48px' }}>
+      <MenuItem
+        disableRipple
+        disableTouchRipple
+        onClick={handleMenuLinkClick}
+        sx={{
+          color: 'text.primary',
+        }}
+        style={{ minHeight: '44px' }}
+      >
         <RestartAlt
           color="action"
           fontSize="small"
-          sx={{ marginRight: '0.5rem' }}
+          sx={{ marginRight: '0.5rem', color: 'text.secondary' }}
         />
         <Typography sx={{ fontSize: '14px' }}>Reset workspaces</Typography>
       </MenuItem>
@@ -118,26 +129,35 @@ const SandboxResetLink = () => {
             all your data and revert the environment to its initial state. You
             cannot undo this.
           </DialogContentText>
+          {!sandboxContext.userReady && (
+            <Alert severity="info" sx={{ marginTop: '25px' }}>
+              You will be able to reset your workspaces once your Sandbox is
+              ready.
+            </Alert>
+          )}
           {resetButtonState !== ResetButtonState.INITIAL && (
-            <Alert severity="warning">
+            <Alert severity="warning" sx={{ marginTop: '25px' }}>
               You are about to perform a destructive operation. Please make sure
               that you want to do this.
             </Alert>
           )}
-          <DialogActions>
-            <Button
-              onClick={handleResetButtonClick}
-              variant="outlined"
-              color="error"
-              disabled={resetButtonState === ResetButtonState.SUBMITTING}
-            >
-              {getResetButtonLabel(resetButtonState)}
-            </Button>
-            <Button onClick={handleCancel} variant="contained" autoFocus>
-              Cancel
-            </Button>
-          </DialogActions>
         </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={handleResetButtonClick}
+            variant="outlined"
+            color="error"
+            disabled={
+              !sandboxContext.userReady ||
+              resetButtonState === ResetButtonState.SUBMITTING
+            }
+          >
+            {getResetButtonLabel(resetButtonState)}
+          </Button>
+          <Button onClick={handleCancel} variant="contained" autoFocus>
+            Cancel
+          </Button>
+        </DialogActions>
       </Dialog>
     </React.Fragment>
   );
