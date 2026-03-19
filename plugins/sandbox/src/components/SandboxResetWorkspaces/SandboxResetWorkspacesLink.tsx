@@ -94,6 +94,12 @@ const SandboxResetLink = () => {
     });
   };
 
+  // When the user does not have any workspaces, we do not want to show the
+  // link that opens the modal.
+  if (!sandboxContext.userReady) {
+    return null;
+  }
+
   return (
     <React.Fragment>
       <MenuItem
@@ -129,12 +135,6 @@ const SandboxResetLink = () => {
             all your data and revert the environment to its initial state. You
             cannot undo this.
           </DialogContentText>
-          {!sandboxContext.userReady && (
-            <Alert severity="info" sx={{ marginTop: '25px' }}>
-              You will be able to reset your workspaces once your Sandbox is
-              ready.
-            </Alert>
-          )}
           {resetButtonState !== ResetButtonState.INITIAL && (
             <Alert severity="warning" sx={{ marginTop: '25px' }}>
               You are about to perform a destructive operation. Please make sure
@@ -147,10 +147,7 @@ const SandboxResetLink = () => {
             onClick={handleResetButtonClick}
             variant="outlined"
             color="error"
-            disabled={
-              !sandboxContext.userReady ||
-              resetButtonState === ResetButtonState.SUBMITTING
-            }
+            disabled={resetButtonState === ResetButtonState.SUBMITTING}
           >
             {getResetButtonLabel(resetButtonState)}
           </Button>
