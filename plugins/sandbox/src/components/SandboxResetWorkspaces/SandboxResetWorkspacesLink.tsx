@@ -8,14 +8,14 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  ListItemText,
   MenuItem,
-  Typography,
 } from '@mui/material';
 import React from 'react';
 import { registerApiRef } from '../../api';
+import { useSandboxContext } from '../../hooks/useSandboxContext';
 import { errorMessage } from '../../utils/common';
 import ResetButtonState from './SandboxResetButtonState';
-import { useSandboxContext } from '../../hooks/useSandboxContext';
 
 /**
  * Decides which label is the correct one depending on the state of the reset
@@ -94,15 +94,10 @@ const SandboxResetLink = () => {
     });
   };
 
-  // When the user does not have any workspaces, we do not want to show the
-  // link that opens the modal.
-  if (!sandboxContext.userReady) {
-    return null;
-  }
-
   return (
     <React.Fragment>
       <MenuItem
+        disabled={sandboxContext.userReady}
         disableRipple
         disableTouchRipple
         onClick={handleMenuLinkClick}
@@ -116,7 +111,10 @@ const SandboxResetLink = () => {
           fontSize="small"
           sx={{ marginRight: '0.5rem', color: 'text.secondary' }}
         />
-        <Typography sx={{ fontSize: '14px' }}>Reset workspaces</Typography>
+        <ListItemText
+          primary="Reset workspaces"
+          secondary={sandboxContext.userReady && 'Only for active trials'}
+        />
       </MenuItem>
       <Dialog onClose={handleCancel} open={isModalOpen}>
         <DialogTitle>Reset your workspaces</DialogTitle>
