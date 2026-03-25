@@ -41,9 +41,7 @@ plugins:
                 importName: SandboxActivitiesPage
             mountPoints:
               - mountPoint: global.header/profile
-                importName: SandboxResetWorkspacesLink
-                config:
-                  priority: 80
+                importName: SandboxResetWorkspaces
 
   # Global Header
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-global-header
