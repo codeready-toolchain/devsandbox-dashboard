@@ -111,18 +111,23 @@ export class RegistrationBackendClient implements RegistrationService {
   };
 
   signup = async (): Promise<void> => {
-    let token = '';
-    try {
-      token = await this.getRecaptchaToken();
-    } catch (err) {
-      throw new Error(`Error getting recaptcha token: ${err}`);
+    const isDev =
+      (this.configApi.getOptionalString('sandbox.environment') ?? 'PROD') ===
+      'DEV';
+    const headers: Record<string, string> = {};
+
+    if (!isDev) {
+      try {
+        headers['Recaptcha-Token'] = await this.getRecaptchaToken();
+      } catch (err) {
+        throw new Error(`Error getting recaptcha token: ${err}`);
+      }
     }
+
     const signupURL = await this.signupAPI();
     await this.secureFetchApi.fetch(signupURL, {
       method: 'POST',
-      headers: {
-        'Recaptcha-Token': token,
-      },
+      headers,
       body: null,
     });
   };
