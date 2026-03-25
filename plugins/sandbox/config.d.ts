@@ -40,5 +40,12 @@ export interface Config {
        */
       siteKey: string;
     };
+    /**
+     * Controls the runtime environment (DEV or PROD).
+     * When set to DEV, analytics scripts (trustarc, dpal) are not loaded.
+     * Defaults to PROD if not specified.
+     * @visibility frontend
+     */
+    environment?: string;
   };
 }

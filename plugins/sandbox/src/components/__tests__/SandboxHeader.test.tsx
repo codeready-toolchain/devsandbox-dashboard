@@ -17,7 +17,12 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 import { SandboxHeader } from '../SandboxHeader';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { wrapInTestApp } from '@backstage/test-utils';
+import {
+  MockConfigApi,
+  TestApiProvider,
+  wrapInTestApp,
+} from '@backstage/test-utils';
+import { configApiRef } from '@backstage/core-plugin-api';
 import * as eddlUtils from '../../utils/eddl-utils';
 
 // Mock the useTrackAnalytics hook
@@ -26,24 +31,50 @@ jest.mock('../../utils/eddl-utils', () => ({
   useTrackAnalytics: jest.fn(),
 }));
 
+const removeAnalyticsScripts = () => {
+  document.getElementById('trustarc')?.remove();
+  document.getElementById('dpal')?.remove();
+};
+
 describe('SandboxHeader', () => {
   const mockTrackAnalytics = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
+    removeAnalyticsScripts();
     // Mock the useTrackAnalytics hook to return a mock function
     (eddlUtils.useTrackAnalytics as jest.Mock).mockReturnValue(
       mockTrackAnalytics,
     );
   });
 
-  const renderComponent = (pageTitle = 'My Page Title') => {
+  afterEach(() => {
+    removeAnalyticsScripts();
+  });
+
+  const renderComponent = (
+    pageTitle = 'My Page Title',
+    environment?: string,
+  ) => {
     const theme = createTheme();
+    const content = (
+      <ThemeProvider theme={theme}>
+        <SandboxHeader pageTitle={pageTitle} />
+      </ThemeProvider>
+    );
     return render(
       wrapInTestApp(
-        <ThemeProvider theme={theme}>
-          <SandboxHeader pageTitle={pageTitle} />
-        </ThemeProvider>,
+        environment ? (
+          <TestApiProvider
+            apis={[
+              [configApiRef, new MockConfigApi({ sandbox: { environment } })],
+            ]}
+          >
+            {content}
+          </TestApiProvider>
+        ) : (
+          content
+        ),
       ),
     );
   };
@@ -117,5 +148,31 @@ describe('SandboxHeader', () => {
     });
 
     windowOpenSpy.mockRestore();
+  });
+
+  describe('analytics scripts loading', () => {
+    test('does not load trustarc and dpal scripts when environment is DEV', () => {
+      renderComponent('My Page Title', 'DEV');
+      expect(document.getElementById('trustarc')).toBeNull();
+      expect(document.getElementById('dpal')).toBeNull();
+    });
+
+    test('loads trustarc and dpal scripts when environment is PROD', () => {
+      renderComponent('My Page Title', 'PROD');
+      const trustarcScript = document.getElementById(
+        'trustarc',
+      ) as HTMLScriptElement;
+      const dpalScript = document.getElementById('dpal') as HTMLScriptElement;
+      expect(trustarcScript).not.toBeNull();
+      expect(trustarcScript.src).toContain('trustarc.js');
+      expect(dpalScript).not.toBeNull();
+      expect(dpalScript.src).toContain('dpal.js');
+    });
+
+    test('loads analytics scripts by default when environment is not set', () => {
+      renderComponent();
+      expect(document.getElementById('trustarc')).not.toBeNull();
+      expect(document.getElementById('dpal')).not.toBeNull();
+    });
   });
 });
