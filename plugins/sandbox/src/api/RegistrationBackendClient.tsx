@@ -19,6 +19,7 @@ import { ConfigApi } from '@backstage/core-plugin-api';
 import { isValidCountryCode, isValidPhoneNumber } from '../utils/phone-utils';
 import { CommonResponse, SignupData } from '../types';
 import { SecureFetchApi } from './SecureFetchClient';
+import { SandboxEnvironment } from '../const';
 
 export type RegistrationBackendClientOptions = {
   configApi: ConfigApi;
@@ -112,8 +113,8 @@ export class RegistrationBackendClient implements RegistrationService {
 
   signup = async (): Promise<void> => {
     const isDev =
-      (this.configApi.getOptionalString('sandbox.environment') ?? 'PROD') ===
-      'DEV';
+      (this.configApi.getOptionalString('sandbox.environment') ??
+        SandboxEnvironment.PROD) === SandboxEnvironment.DEV;
     const headers: Record<string, string> = {};
 
     if (!isDev) {

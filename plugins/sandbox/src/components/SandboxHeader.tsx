@@ -23,6 +23,7 @@ import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import { Header, Link } from '@backstage/core-components';
 import { useApi, configApiRef } from '@backstage/core-plugin-api';
 import { useTrackAnalytics } from '../utils/eddl-utils';
+import { SandboxEnvironment } from '../const';
 
 interface SandboxHeaderProps {
   pageTitle: string;
@@ -32,10 +33,11 @@ export const SandboxHeader: React.FC<SandboxHeaderProps> = ({ pageTitle }) => {
   const trackAnalytics = useTrackAnalytics();
   const configApi = useApi(configApiRef);
   const environment =
-    configApi.getOptionalString('sandbox.environment') ?? 'PROD';
+    configApi.getOptionalString('sandbox.environment') ??
+    SandboxEnvironment.PROD;
 
   useEffect(() => {
-    if (environment === 'DEV') {
+    if (environment === SandboxEnvironment.DEV) {
       return;
     }
 

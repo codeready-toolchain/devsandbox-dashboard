@@ -23,6 +23,7 @@ import {
   wrapInTestApp,
 } from '@backstage/test-utils';
 import { configApiRef } from '@backstage/core-plugin-api';
+import { SandboxEnvironment } from '../../const';
 import * as eddlUtils from '../../utils/eddl-utils';
 
 // Mock the useTrackAnalytics hook
@@ -152,13 +153,13 @@ describe('SandboxHeader', () => {
 
   describe('analytics scripts loading', () => {
     test('does not load trustarc and dpal scripts when environment is DEV', () => {
-      renderComponent('My Page Title', 'DEV');
+      renderComponent('My Page Title', SandboxEnvironment.DEV);
       expect(document.getElementById('trustarc')).toBeNull();
       expect(document.getElementById('dpal')).toBeNull();
     });
 
     test('loads trustarc and dpal scripts when environment is PROD', () => {
-      renderComponent('My Page Title', 'PROD');
+      renderComponent('My Page Title', SandboxEnvironment.PROD);
       const trustarcScript = document.getElementById(
         'trustarc',
       ) as HTMLScriptElement;

@@ -19,7 +19,7 @@ import { AAPData, SignupData } from '../types';
 import { useApi, configApiRef } from '@backstage/core-plugin-api';
 import { aapApiRef, kubeApiRef, registerApiRef } from '../api';
 import { useRecaptcha } from './useRecaptcha';
-import { LONG_INTERVAL, SHORT_INTERVAL } from '../const';
+import { LONG_INTERVAL, SandboxEnvironment, SHORT_INTERVAL } from '../const';
 import { signupDataToStatus } from '../utils/register-utils';
 import { AnsibleStatus, decode, getReadyCondition } from '../utils/aap-utils';
 import { errorMessage } from '../utils/common';
@@ -65,7 +65,8 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const configApi = useApi(configApiRef);
   const isProd =
-    (configApi.getOptionalString('sandbox.environment') ?? 'PROD') !== 'DEV';
+    (configApi.getOptionalString('sandbox.environment') ??
+      SandboxEnvironment.PROD) !== SandboxEnvironment.DEV;
   useRecaptcha(isProd);
   const aapApi = useApi(aapApiRef);
   const kubeApi = useApi(kubeApiRef);
