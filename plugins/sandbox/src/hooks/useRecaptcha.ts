@@ -18,10 +18,12 @@ import { useApi } from '@backstage/core-plugin-api';
 import { loadRecaptchaScript } from '../utils/recaptcha';
 import { registerApiRef } from '../api';
 
-export const useRecaptcha = () => {
+export const useRecaptcha = (enabled = true) => {
   const registerApi = useApi(registerApiRef);
   React.useEffect(() => {
-    loadRecaptchaScript(registerApi.getRecaptchaAPIKey());
+    if (enabled) {
+      loadRecaptchaScript(registerApi.getRecaptchaAPIKey());
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [enabled]);
 };
