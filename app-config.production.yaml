@@ -61,6 +61,7 @@ auth:
 signInPage: oidc
 
 sandbox:
+  environment: PROD
   signupAPI: ${SIGNUP_API}
   kubeAPI: ${KUBE_API}
   recaptcha:
