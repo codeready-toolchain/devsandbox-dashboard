@@ -16,10 +16,10 @@
 import { isEqual } from 'lodash';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AAPData, SignupData } from '../types';
-import { useApi } from '@backstage/core-plugin-api';
+import { useApi, configApiRef } from '@backstage/core-plugin-api';
 import { aapApiRef, kubeApiRef, registerApiRef } from '../api';
 import { useRecaptcha } from './useRecaptcha';
-import { LONG_INTERVAL, SHORT_INTERVAL } from '../const';
+import { LONG_INTERVAL, SandboxEnvironment, SHORT_INTERVAL } from '../const';
 import { signupDataToStatus } from '../utils/register-utils';
 import { AnsibleStatus, decode, getReadyCondition } from '../utils/aap-utils';
 import { errorMessage } from '../utils/common';
@@ -63,7 +63,11 @@ export const useSandboxContext = (): SandboxContextType => {
 export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  useRecaptcha();
+  const configApi = useApi(configApiRef);
+  const isProd =
+    (configApi.getOptionalString('sandbox.environment') ??
+      SandboxEnvironment.PROD) !== SandboxEnvironment.DEV;
+  useRecaptcha(isProd);
   const aapApi = useApi(aapApiRef);
   const kubeApi = useApi(kubeApiRef);
   const registerApi = useApi(registerApiRef);
@@ -210,6 +214,9 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Initialize Segment Analytics
   useEffect(() => {
+    if (!isProd) {
+      return;
+    }
     const fetchSegmentWriteKey = async () => {
       try {
         const writeKey = await registerApi.getSegmentWriteKey();
@@ -219,7 +226,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     };
     fetchSegmentWriteKey();
-  }, [registerApi]);
+  }, [registerApi, isProd]);
 
   // Fetch Marketo webhook URL from UI config
   useEffect(() => {
