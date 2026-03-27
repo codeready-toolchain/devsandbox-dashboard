@@ -2,17 +2,19 @@ import { alertApiRef, useApi } from '@backstage/core-plugin-api';
 import { RestartAlt } from '@mui/icons-material';
 import {
   Alert,
+  Box,
   Button,
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
   DialogTitle,
+  ListItemText,
   MenuItem,
-  Typography,
 } from '@mui/material';
 import React from 'react';
 import { registerApiRef } from '../../api';
+import { useSandboxContext } from '../../hooks/useSandboxContext';
 import { errorMessage } from '../../utils/common';
 import ResetButtonState from './SandboxResetButtonState';
 
@@ -46,6 +48,8 @@ const SandboxResetLink = () => {
 
   const alertApi = useApi(alertApiRef);
   const signupApi = useApi(registerApiRef);
+
+  const sandboxContext = useSandboxContext();
 
   // Since our custom link is wrapped in a Menu component, we want to prevent
   // the default behavior and propagation of any events, so that it works as
@@ -93,13 +97,25 @@ const SandboxResetLink = () => {
 
   return (
     <React.Fragment>
-      <MenuItem onClick={handleMenuLinkClick} style={{ minHeight: '48px' }}>
+      <MenuItem
+        disabled={!sandboxContext.userReady}
+        disableRipple
+        disableTouchRipple
+        onClick={handleMenuLinkClick}
+        sx={{
+          color: 'text.primary',
+        }}
+        style={{ minHeight: '44px' }}
+      >
         <RestartAlt
           color="action"
           fontSize="small"
-          sx={{ marginRight: '0.5rem' }}
+          sx={{ marginRight: '0.5rem', color: 'text.secondary' }}
         />
-        <Typography sx={{ fontSize: '14px' }}>Reset workspaces</Typography>
+        <ListItemText
+          primary="Reset workspaces"
+          secondary={!sandboxContext.userReady && 'Only for active trials'}
+        />
       </MenuItem>
       <Dialog onClose={handleCancel} open={isModalOpen}>
         <DialogTitle>Reset your workspaces</DialogTitle>
@@ -119,25 +135,33 @@ const SandboxResetLink = () => {
             cannot undo this.
           </DialogContentText>
           {resetButtonState !== ResetButtonState.INITIAL && (
-            <Alert severity="warning">
-              You are about to perform a destructive operation. Please make sure
-              that you want to do this.
-            </Alert>
+            <Box>
+              <Alert
+                severity="warning"
+                variant="standard"
+                sx={{
+                  marginTop: '25px',
+                }}
+              >
+                You are about to perform a destructive operation. Please make
+                sure that you want to do this.
+              </Alert>
+            </Box>
           )}
-          <DialogActions>
-            <Button
-              onClick={handleResetButtonClick}
-              variant="outlined"
-              color="error"
-              disabled={resetButtonState === ResetButtonState.SUBMITTING}
-            >
-              {getResetButtonLabel(resetButtonState)}
-            </Button>
-            <Button onClick={handleCancel} variant="contained" autoFocus>
-              Cancel
-            </Button>
-          </DialogActions>
         </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={handleResetButtonClick}
+            variant="contained"
+            color="error"
+            disabled={resetButtonState === ResetButtonState.SUBMITTING}
+          >
+            {getResetButtonLabel(resetButtonState)}
+          </Button>
+          <Button onClick={handleCancel} variant="outlined" autoFocus>
+            Cancel
+          </Button>
+        </DialogActions>
       </Dialog>
     </React.Fragment>
   );

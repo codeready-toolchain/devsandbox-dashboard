@@ -158,13 +158,13 @@ export const RHSSOSignInPage = sandboxPlugin.provide(
  * forces the user to confirm the operation.
  * @public
  */
-export const SandboxResetWorkspacesLink = sandboxPlugin.provide(
+export const SandboxResetWorkspaces = sandboxPlugin.provide(
   createComponentExtension({
-    name: 'SandboxResetWorkspacesLink',
+    name: 'SandboxResetWorkspaces',
     component: {
       lazy: () =>
         import(
-          './components/SandboxResetWorkspaces/SandboxResetWorkspacesLink'
+          './components/SandboxResetWorkspaces/SandboxResetWorkspaces'
         ).then(m => m.default),
     },
   }),

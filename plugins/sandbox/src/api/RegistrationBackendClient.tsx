@@ -19,6 +19,7 @@ import { ConfigApi } from '@backstage/core-plugin-api';
 import { isValidCountryCode, isValidPhoneNumber } from '../utils/phone-utils';
 import { CommonResponse, SignupData } from '../types';
 import { SecureFetchApi } from './SecureFetchClient';
+import { SandboxEnvironment } from '../const';
 
 export type RegistrationBackendClientOptions = {
   configApi: ConfigApi;
@@ -111,18 +112,23 @@ export class RegistrationBackendClient implements RegistrationService {
   };
 
   signup = async (): Promise<void> => {
-    let token = '';
-    try {
-      token = await this.getRecaptchaToken();
-    } catch (err) {
-      throw new Error(`Error getting recaptcha token: ${err}`);
+    const isDev =
+      (this.configApi.getOptionalString('sandbox.environment') ??
+        SandboxEnvironment.PROD) === SandboxEnvironment.DEV;
+    const headers: Record<string, string> = {};
+
+    if (!isDev) {
+      try {
+        headers['Recaptcha-Token'] = await this.getRecaptchaToken();
+      } catch (err) {
+        throw new Error(`Error getting recaptcha token: ${err}`);
+      }
     }
+
     const signupURL = await this.signupAPI();
     await this.secureFetchApi.fetch(signupURL, {
       method: 'POST',
-      headers: {
-        'Recaptcha-Token': token,
-      },
+      headers,
       body: null,
     });
   };
