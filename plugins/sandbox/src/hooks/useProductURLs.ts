@@ -62,10 +62,11 @@ export const productsURLMapping = (userData: SignupData | undefined) => {
           ? `${userData?.consoleURL}/k8s/cluster/projects/${userData?.defaultUserNamespace}`
           : '',
     },
-    {
-      id: Product.OPENSHIFT_AI,
-      url: isProvisioned ? `${userData?.rhodsMemberURL}` : '',
-    },
+    // SANDBOX-1755: OpenShift AI temporarily disabled
+    // {
+    //   id: Product.OPENSHIFT_AI,
+    //   url: isProvisioned ? `${userData?.rhodsMemberURL}` : '',
+    // },
     {
       id: Product.DEVSPACES,
       url: isProvisioned
