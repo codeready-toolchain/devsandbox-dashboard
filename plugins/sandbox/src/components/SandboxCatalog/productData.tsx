@@ -18,7 +18,8 @@ import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
 import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded';
 import OpenShiftIcon from '../../assets/logos/openshift.svg';
 import AnsibleIcon from '../../assets/logos/ansible.svg';
-import OpenShiftAIIcon from '../../assets/logos/openshift-ai.svg';
+// SANDBOX-1755: OpenShift AI temporarily disabled
+// import OpenShiftAIIcon from '../../assets/logos/openshift-ai.svg';
 import DevSpacesIcon from '../../assets/logos/devspaces.svg';
 import OpenshiftVirtualizationIcon from '../../assets/logos/openshift-virtualization.svg';
 
@@ -77,33 +78,34 @@ export const productData: ProductData[] = [
       },
     ],
   },
-  {
-    id: Product.OPENSHIFT_AI,
-    title: 'OpenShift AI',
-    image: OpenShiftAIIcon,
-    description: [
-      {
-        icon: getSandboxCatalogCardIcon('success'),
-        value: 'Scalable AI and ML platform',
-      },
-      {
-        icon: getSandboxCatalogCardIcon('success'),
-        value: 'Optimized for AI workloads',
-      },
-      {
-        icon: getSandboxCatalogCardIcon('success'),
-        value: 'Train, serve and monitor models',
-      },
-      {
-        icon: getSandboxCatalogCardIcon('success'),
-        value: 'Supports predictive and generative AI',
-      },
-      {
-        icon: getSandboxCatalogCardIcon('success'),
-        value: 'Scales across the hybrid cloud',
-      },
-    ],
-  },
+  // SANDBOX-1755: OpenShift AI temporarily disabled
+  // {
+  //   id: Product.OPENSHIFT_AI,
+  //   title: 'OpenShift AI',
+  //   image: OpenShiftAIIcon,
+  //   description: [
+  //     {
+  //       icon: getSandboxCatalogCardIcon('success'),
+  //       value: 'Scalable AI and ML platform',
+  //     },
+  //     {
+  //       icon: getSandboxCatalogCardIcon('success'),
+  //       value: 'Optimized for AI workloads',
+  //     },
+  //     {
+  //       icon: getSandboxCatalogCardIcon('success'),
+  //       value: 'Train, serve and monitor models',
+  //     },
+  //     {
+  //       icon: getSandboxCatalogCardIcon('success'),
+  //       value: 'Supports predictive and generative AI',
+  //     },
+  //     {
+  //       icon: getSandboxCatalogCardIcon('success'),
+  //       value: 'Scales across the hybrid cloud',
+  //     },
+  //   ],
+  // },
   {
     id: Product.DEVSPACES,
     title: 'Dev Spaces',
