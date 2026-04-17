@@ -35,8 +35,7 @@ describe('productData', () => {
       const productIds = productData.map(product => product.id);
       expect(productIds).toEqual([
         Product.OPENSHIFT_CONSOLE,
-        // SANDBOX-1755: OpenShift AI temporarily disabled
-        // Product.OPENSHIFT_AI,
+        Product.OPENSHIFT_AI,
         Product.DEVSPACES,
         Product.AAP,
         Product.OPENSHIFT_VIRT,
@@ -69,8 +68,7 @@ describe('productData', () => {
     // Access the private getSandboxCatalogCardIcon function
     // We need to get it from a description item since it's not exported
     const successIcon = productData[0].description[0].icon;
-    // SANDBOX-1755: OpenShift AI temporarily disabled
-    const warningIcon = productData[2].description[4].icon; // AAP's warning icon
+    const warningIcon = productData[3].description[4].icon; // AAP's warning icon
 
     it('should use TaskAltRoundedIcon for success status', () => {
       expect(successIcon.type).toBe(TaskAltRoundedIcon);
@@ -99,13 +97,12 @@ describe('productData', () => {
       expect(openshift?.description).toHaveLength(4);
     });
 
-    // SANDBOX-1755: OpenShift AI temporarily disabled
-    // it('should have correct OpenShift AI data', () => {
-    //   const openshiftAI = productData.find(p => p.id === Product.OPENSHIFT_AI);
-    //   expect(openshiftAI).toBeDefined();
-    //   expect(openshiftAI?.title).toBe('OpenShift AI');
-    //   expect(openshiftAI?.description).toHaveLength(5);
-    // });
+    it('should have correct OpenShift AI data', () => {
+      const openshiftAI = productData.find(p => p.id === Product.OPENSHIFT_AI);
+      expect(openshiftAI).toBeDefined();
+      expect(openshiftAI?.title).toBe('OpenShift AI');
+      expect(openshiftAI?.description).toHaveLength(5);
+    });
 
     it('should have correct AAP warning message', () => {
       const aap = productData.find(p => p.id === Product.AAP);
