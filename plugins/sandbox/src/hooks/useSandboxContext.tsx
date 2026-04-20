@@ -236,11 +236,21 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   // service.
   useEffect(() => {
     const fetchUIConfig = async () => {
-      const uiConfig = await registerApi.getUIConfig();
-      if (uiConfig.workatoWebHookURL) {
-        setMarketoWebhookURL(uiConfig.workatoWebHookURL);
+      try {
+        const uiConfig = await registerApi.getUIConfig();
+        if (uiConfig.workatoWebHookURL) {
+          setMarketoWebhookURL(uiConfig.workatoWebHookURL);
+        }
+        setDisabledIntegrations(
+          Array.isArray(uiConfig.disabledIntegrations)
+            ? uiConfig.disabledIntegrations
+            : [],
+        );
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Error fetching UI config:', err);
+        setDisabledIntegrations([]);
       }
-      setDisabledIntegrations(uiConfig.disabledIntegrations ?? []);
     };
     fetchUIConfig();
   }, [registerApi]);

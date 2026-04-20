@@ -183,7 +183,7 @@ describe('SandboxCatalogGrid', () => {
     });
 
     (useGreenCorners as jest.Mock).mockReturnValue({
-      greenCorners: [],
+      greenCorners: mockGreenCorners,
       setGreenCorners: mockSetGreenCorners,
     });
 
@@ -192,6 +192,7 @@ describe('SandboxCatalogGrid', () => {
     const cards = screen.queryAllByTestId('catalog-card');
     expect(cards).toHaveLength(0);
     expect(container.querySelector('.MuiGrid-container')).toBeNull();
+    expect(useGreenCorners).toHaveBeenCalledWith(productData);
   });
 
   it('hides cards for disabled integrations', () => {

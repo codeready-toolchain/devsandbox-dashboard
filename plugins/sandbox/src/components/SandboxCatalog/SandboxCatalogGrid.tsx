@@ -26,9 +26,9 @@ export const SandboxCatalogGrid: React.FC = () => {
   const { disabledIntegrations } = useSandboxContext();
   const enabledProducts = useMemo(
     () =>
-      disabledIntegrations === undefined
-        ? []
-        : productData.filter(p => !disabledIntegrations.includes(p.id)),
+      productData.filter(
+        p => !(disabledIntegrations ?? []).includes(p.id),
+      ),
     [disabledIntegrations],
   );
   const { greenCorners, setGreenCorners } = useGreenCorners(enabledProducts);
