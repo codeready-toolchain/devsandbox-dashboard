@@ -13,16 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import React from 'react';
+import React, { useMemo } from 'react';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import { Product, productData } from './productData';
 import useGreenCorners from '../../hooks/useGreenCorners';
 import { SandboxCatalogCard } from './SandboxCatalogCard';
 import useProductURLs from '../../hooks/useProductURLs';
+import { useSandboxContext } from '../../hooks/useSandboxContext';
 
 export const SandboxCatalogGrid: React.FC = () => {
-  const { greenCorners, setGreenCorners } = useGreenCorners(productData);
+  const { disabledIntegrations } = useSandboxContext();
+  const enabledProducts = useMemo(
+    () =>
+      disabledIntegrations === undefined
+        ? []
+        : productData.filter(p => !disabledIntegrations.includes(p.id)),
+    [disabledIntegrations],
+  );
+  const { greenCorners, setGreenCorners } = useGreenCorners(enabledProducts);
   const productURLs = useProductURLs();
 
   const showGreenCorner = (id: Product) => {
@@ -31,9 +40,17 @@ export const SandboxCatalogGrid: React.FC = () => {
     );
   };
 
+  // Do not load the grid until we have a list of which integrations are
+  // disabled. Otherwise what happens is that the whole integration catalog
+  // is loaded, and once the UI configuration is fetched, the disabled
+  // integrations disappear.
+  if (disabledIntegrations === undefined) {
+    return null;
+  }
+
   return (
     <Grid container spacing={2} sx={{ maxWidth: '100%' }}>
-      {productData?.map(product => (
+      {enabledProducts.map(product => (
         <Grid item xs="auto" sm="auto" md="auto" lg="auto" key={product.id}>
           <Box sx={{ width: '330px', height: '372px' }}>
             <SandboxCatalogCard

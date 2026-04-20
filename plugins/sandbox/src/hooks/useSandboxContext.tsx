@@ -48,6 +48,7 @@ interface SandboxContextType {
   ansibleStatus: AnsibleStatus;
   segmentTrackClick?: (data: SegmentTrackingData) => Promise<void>;
   marketoWebhookURL?: string;
+  disabledIntegrations?: string[];
 }
 
 const SandboxContext = createContext<SandboxContextType | undefined>(undefined);
@@ -73,6 +74,9 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   const registerApi = useApi(registerApiRef);
   const [segmentWriteKey, setSegmentWriteKey] = useState<string>();
   const [marketoWebhookURL, setMarketoWebhookURL] = useState<string>();
+  const [disabledIntegrations, setDisabledIntegrations] = useState<
+    string[] | undefined
+  >();
   const [statusUnknown, setStatusUnknown] = React.useState(true);
   const [userFound, setUserFound] = useState<boolean>(false);
   const [userData, setData] = useState<SignupData | undefined>(undefined);
@@ -228,13 +232,15 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     fetchSegmentWriteKey();
   }, [registerApi, isProd]);
 
-  // Fetch Marketo webhook URL from UI config
+  // Fetch the marketo URL and the disabled integrations from the registration
+  // service.
   useEffect(() => {
     const fetchUIConfig = async () => {
       const uiConfig = await registerApi.getUIConfig();
       if (uiConfig.workatoWebHookURL) {
         setMarketoWebhookURL(uiConfig.workatoWebHookURL);
       }
+      setDisabledIntegrations(uiConfig.disabledIntegrations ?? []);
     };
     fetchUIConfig();
   }, [registerApi]);
@@ -291,6 +297,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
         ansibleStatus,
         segmentTrackClick: segmentAnalytics.trackClick,
         marketoWebhookURL,
+        disabledIntegrations,
       }}
     >
       {children}

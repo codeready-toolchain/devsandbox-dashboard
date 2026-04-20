@@ -23,11 +23,13 @@ import { wrapInTestApp } from '@backstage/test-utils';
 import { SandboxCatalogCard } from '../SandboxCatalogCard';
 import useGreenCorners from '../../../hooks/useGreenCorners';
 import useProductURLs from '../../../hooks/useProductURLs';
+import { useSandboxContext } from '../../../hooks/useSandboxContext';
 import { productData } from '../productData';
 
 // Mock the hooks
 jest.mock('../../../hooks/useGreenCorners');
 jest.mock('../../../hooks/useProductURLs');
+jest.mock('../../../hooks/useSandboxContext');
 
 // Mock the SandboxCatalogCard component
 jest.mock('../SandboxCatalogCard', () => ({
@@ -80,6 +82,10 @@ describe('SandboxCatalogGrid', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
+    (useSandboxContext as jest.Mock).mockReturnValue({
+      disabledIntegrations: [],
+    });
+
     // Setup mock return values for hooks
     (useGreenCorners as jest.Mock).mockReturnValue({
       greenCorners: mockGreenCorners,
@@ -107,7 +113,7 @@ describe('SandboxCatalogGrid', () => {
     expect(cards).toHaveLength(productData.length);
   });
 
-  it('calls useGreenCorners hook with productData', () => {
+  it('calls useGreenCorners hook with enabled products', () => {
     renderGrid();
     expect(useGreenCorners).toHaveBeenCalledWith(productData);
   });
@@ -169,5 +175,57 @@ describe('SandboxCatalogGrid', () => {
       { id: 'openshift-console', show: true }, // Changed to true
       { id: 'openshift-ai', show: true }, // Already true, unchanged
     ]);
+  });
+
+  it('renders nothing while UI config is loading', () => {
+    (useSandboxContext as jest.Mock).mockReturnValue({
+      disabledIntegrations: undefined,
+    });
+
+    (useGreenCorners as jest.Mock).mockReturnValue({
+      greenCorners: [],
+      setGreenCorners: mockSetGreenCorners,
+    });
+
+    const { container } = renderGrid();
+
+    const cards = screen.queryAllByTestId('catalog-card');
+    expect(cards).toHaveLength(0);
+    expect(container.querySelector('.MuiGrid-container')).toBeNull();
+  });
+
+  it('hides cards for disabled integrations', () => {
+    (useSandboxContext as jest.Mock).mockReturnValue({
+      disabledIntegrations: ['openshift-ai'],
+    });
+
+    (useGreenCorners as jest.Mock).mockReturnValue({
+      greenCorners: [{ id: 'openshift-console', show: false }],
+      setGreenCorners: mockSetGreenCorners,
+    });
+
+    renderGrid();
+
+    const cards = screen.getAllByTestId('catalog-card');
+    expect(cards).toHaveLength(1);
+
+    const firstCallProps = (SandboxCatalogCard as jest.Mock).mock.calls[0][0];
+    expect(firstCallProps.id).toBe('openshift-console');
+  });
+
+  it('hides all cards when all integrations are disabled', () => {
+    (useSandboxContext as jest.Mock).mockReturnValue({
+      disabledIntegrations: ['openshift-console', 'openshift-ai'],
+    });
+
+    (useGreenCorners as jest.Mock).mockReturnValue({
+      greenCorners: [],
+      setGreenCorners: mockSetGreenCorners,
+    });
+
+    renderGrid();
+
+    const cards = screen.queryAllByTestId('catalog-card');
+    expect(cards).toHaveLength(0);
   });
 });
