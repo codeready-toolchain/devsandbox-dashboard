@@ -229,13 +229,12 @@ describe('SandboxCatalogCardButton', () => {
           expectedIntcmp: '701Pe00000dnCEYIA2',
           expectedLabel: 'Try it',
         },
-        // SANDBOX-1755: OpenShift AI temporarily disabled
-        // {
-        //   id: Product.OPENSHIFT_AI,
-        //   title: 'OpenShift AI',
-        //   expectedIntcmp: '701Pe00000do2uiIAA',
-        //   expectedLabel: 'Try it',
-        // },
+        {
+          id: Product.OPENSHIFT_AI,
+          title: 'OpenShift AI',
+          expectedIntcmp: '701Pe00000do2uiIAA',
+          expectedLabel: 'Try it',
+        },
         {
           id: Product.DEVSPACES,
           title: 'Dev Spaces',
