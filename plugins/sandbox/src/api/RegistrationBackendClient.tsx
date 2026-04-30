@@ -28,6 +28,7 @@ export type RegistrationBackendClientOptions = {
 
 export interface UIConfig {
   workatoWebHookURL?: string;
+  disabledIntegrations?: string[];
 }
 
 export interface RegistrationService {
