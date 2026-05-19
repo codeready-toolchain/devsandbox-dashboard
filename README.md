@@ -12,7 +12,6 @@ You can configure, if you need to use a specific backend, in the `app-config.loc
 2. The URL of the kube-api production server.
 3. The site key for Google Recaptcha. The keys can be obtained from the Google Recaptcha admin console.
 
-
 ## Development
 
 To start the app locally, run:
@@ -33,10 +32,9 @@ Usually this works:
 
 ```
 podman machine stop
-podman machine set --memory 6144 
+podman machine set --memory 6144
 podman machine start
 ```
-
 
 ## Upgrading backstage
 
