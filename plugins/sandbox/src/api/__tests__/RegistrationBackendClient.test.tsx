@@ -289,6 +289,28 @@ describe('RegistrationBackendClient', () => {
       );
     });
 
+    it('should return UI config with disabledIntegrations', async () => {
+      const mockUIConfig = {
+        workatoWebHookURL: 'https://webhooks.test',
+        disabledIntegrations: ['openshift-console', 'devspaces'],
+      };
+
+      mockSecureFetchApi.fetch.mockResolvedValue(
+        createMockResponse({
+          ok: true,
+          json: () => Promise.resolve(mockUIConfig),
+        }),
+      );
+
+      const result = await client.getUIConfig();
+
+      expect(result).toEqual(mockUIConfig);
+      expect(result.disabledIntegrations).toEqual([
+        'openshift-console',
+        'devspaces',
+      ]);
+    });
+
     it('should return empty config if workatoWebHookURL is not present', async () => {
       const mockUIConfig = {};
 
@@ -303,6 +325,7 @@ describe('RegistrationBackendClient', () => {
 
       expect(result).toEqual({});
       expect(result.workatoWebHookURL).toBeUndefined();
+      expect(result.disabledIntegrations).toBeUndefined();
     });
 
     it('should return empty config on unsuccessful response', async () => {

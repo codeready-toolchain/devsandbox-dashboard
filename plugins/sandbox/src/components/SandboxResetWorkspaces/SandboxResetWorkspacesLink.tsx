@@ -2,6 +2,7 @@ import { alertApiRef, useApi } from '@backstage/core-plugin-api';
 import { RestartAlt } from '@mui/icons-material';
 import {
   Alert,
+  Box,
   Button,
   Dialog,
   DialogActions,
@@ -97,7 +98,7 @@ const SandboxResetLink = () => {
   return (
     <React.Fragment>
       <MenuItem
-        disabled={sandboxContext.userReady}
+        disabled={!sandboxContext.userReady}
         disableRipple
         disableTouchRipple
         onClick={handleMenuLinkClick}
@@ -113,7 +114,7 @@ const SandboxResetLink = () => {
         />
         <ListItemText
           primary="Reset workspaces"
-          secondary={sandboxContext.userReady && 'Only for active trials'}
+          secondary={!sandboxContext.userReady && 'Only for active trials'}
         />
       </MenuItem>
       <Dialog onClose={handleCancel} open={isModalOpen}>
@@ -134,22 +135,30 @@ const SandboxResetLink = () => {
             cannot undo this.
           </DialogContentText>
           {resetButtonState !== ResetButtonState.INITIAL && (
-            <Alert severity="warning" sx={{ marginTop: '25px' }}>
-              You are about to perform a destructive operation. Please make sure
-              that you want to do this.
-            </Alert>
+            <Box>
+              <Alert
+                severity="warning"
+                variant="standard"
+                sx={{
+                  marginTop: '25px',
+                }}
+              >
+                You are about to perform a destructive operation. Please make
+                sure that you want to do this.
+              </Alert>
+            </Box>
           )}
         </DialogContent>
         <DialogActions>
           <Button
             onClick={handleResetButtonClick}
-            variant="outlined"
+            variant="contained"
             color="error"
             disabled={resetButtonState === ResetButtonState.SUBMITTING}
           >
             {getResetButtonLabel(resetButtonState)}
           </Button>
-          <Button onClick={handleCancel} variant="contained" autoFocus>
+          <Button onClick={handleCancel} variant="outlined" autoFocus>
             Cancel
           </Button>
         </DialogActions>
