@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -33,7 +33,7 @@ Tests use Jest via `backstage-cli`, `@testing-library/react`, and MSW for API mo
 
 ### Lint & Format
 ```sh
-yarn lint                 # lint changed files (since origin/main)
+yarn lint                 # lint changed files (since origin/master)
 yarn lint:all             # lint everything
 yarn prettier:check       # check formatting
 ```

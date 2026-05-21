@@ -72,3 +72,4 @@ index.json
 
 # toolchain-e2e
 .toolchain-e2e/
+.claude/settings.local.json
