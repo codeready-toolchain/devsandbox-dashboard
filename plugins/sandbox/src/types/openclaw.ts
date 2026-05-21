@@ -13,8 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-export * from './common';
-export * from './aap';
-export * from './openclaw';
-export * from './kube';
-export * from './registration';
+
+import { StatusCondition } from './common';
+
+export type OpenClawItem = {
+  metadata: {
+    name: string;
+    uuid: string;
+    creationTimestamp: string;
+  };
+  spec: {
+    apiKey: string;
+  };
+  status: {
+    conditions: StatusCondition[];
+    url?: string;
+  };
+};

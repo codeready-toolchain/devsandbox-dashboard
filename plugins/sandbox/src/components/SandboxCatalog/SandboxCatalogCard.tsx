@@ -29,12 +29,15 @@ import { SandboxCatalogCardDeleteButton } from './SandboxCatalogCardDeleteButton
 import {
   AnsibleDeleteInstanceModal,
   AnsibleLaunchInfoModal,
+  OpenClawDeleteInstanceModal,
+  OpenClawLaunchInfoModal,
   PhoneVerificationModal,
 } from '../Modals';
 import { useSandboxContext } from '../../hooks/useSandboxContext';
 import { useApi } from '@backstage/core-plugin-api';
-import { aapApiRef, kubeApiRef } from '../../api';
+import { aapApiRef, kubeApiRef, openclawApiRef } from '../../api';
 import { Product } from './productData';
+import { OpenClawStatus } from '../../utils/openclaw-utils';
 import { signupDataToStatus } from '../../utils/register-utils';
 import { productsURLMapping } from '../../hooks/useProductURLs';
 
@@ -108,15 +111,25 @@ export const SandboxCatalogCard: React.FC<SandboxCatalogCardProps> = ({
   const theme = useTheme();
   const kubeApi = useApi(kubeApiRef);
   const aapApi = useApi(aapApiRef);
+  const openclawApi = useApi(openclawApiRef);
   let { userData, userFound, userReady, verificationRequired } =
     useSandboxContext();
-  const { handleAAPInstance, signupUser, refetchUserData, refetchAAP } =
-    useSandboxContext();
+  const {
+    handleAAPInstance,
+    signupUser,
+    refetchUserData,
+    refetchAAP,
+    refetchOpenClaw,
+    openclawStatus,
+    openclawUILink,
+  } = useSandboxContext();
   const [ansibleCredsModalOpen, setAnsibleCredsModalOpen] =
     React.useState(false);
+  const [openclawModalOpen, setOpenclawModalOpen] = React.useState(false);
   const [verifyPhoneModalOpen, setVerifyPhoneModalOpen] = useState(false);
   const [refetchingUserData, setRefetchingUserData] = useState(false);
   const [deleteAnsibleModalOpen, setDeleteAnsibleModalOpen] = useState(false);
+  const [deleteOpenclawModalOpen, setDeleteOpenclawModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const handleTryButtonClick = async (pdt: Product) => {
@@ -184,6 +197,22 @@ export const SandboxCatalogCard: React.FC<SandboxCatalogCardProps> = ({
       setAnsibleCredsModalOpen(true);
       showGreenCorner();
     }
+
+    if (userFound && userReady && pdt === Product.OPENCLAW) {
+      if (!userData?.defaultUserNamespace) {
+        // eslint-disable-next-line
+        console.error(
+          'unable to provision OpenClaw. user namespace is not defined.',
+        );
+        return;
+      }
+      if (openclawStatus === OpenClawStatus.READY && openclawUILink) {
+        window.open(openclawUILink, '_blank');
+      } else {
+        setOpenclawModalOpen(true);
+      }
+      showGreenCorner();
+    }
   };
 
   const handleDeleteButtonClick = async (pdt: Product) => {
@@ -197,7 +226,7 @@ export const SandboxCatalogCard: React.FC<SandboxCatalogCardProps> = ({
     if (!userNamespace) {
       // eslint-disable-next-line
       console.error(
-        'unable to delete aap instance. user namespace is undefined',
+        'unable to delete instance. user namespace is undefined',
       );
       return;
     }
@@ -223,8 +252,18 @@ export const SandboxCatalogCard: React.FC<SandboxCatalogCardProps> = ({
         // eslint-disable-next-line no-console
         console.error(e);
       }
+      refetchAAP(userNamespace);
     }
-    refetchAAP(userNamespace);
+    if (pdt === Product.OPENCLAW) {
+      setDeleteOpenclawModalOpen(false);
+      try {
+        await openclawApi.deleteOpenClawCR(userNamespace);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error(e);
+      }
+      refetchOpenClaw(userNamespace);
+    }
     setDeleting(false);
   };
 
@@ -309,7 +348,7 @@ export const SandboxCatalogCard: React.FC<SandboxCatalogCardProps> = ({
           <SandboxCatalogCardDeleteButton
             id={id}
             theme={theme}
-            handleDeleteButtonClick={() => setDeleteAnsibleModalOpen(true)}
+            handleDeleteButtonClick={() => id === Product.OPENCLAW ? setDeleteOpenclawModalOpen(true) : setDeleteAnsibleModalOpen(true)}
             isDeleting={deleting}
           />
         </CardActions>
@@ -329,6 +368,15 @@ export const SandboxCatalogCard: React.FC<SandboxCatalogCardProps> = ({
         modalOpen={deleteAnsibleModalOpen}
         setOpen={setDeleteAnsibleModalOpen}
         handleAnsibleDeleteInstance={() => handleDeleteButtonClick(id)}
+      />
+      <OpenClawLaunchInfoModal
+        modalOpen={openclawModalOpen}
+        setOpen={setOpenclawModalOpen}
+      />
+      <OpenClawDeleteInstanceModal
+        modalOpen={deleteOpenclawModalOpen}
+        setOpen={setDeleteOpenclawModalOpen}
+        handleOpenClawDeleteInstance={() => handleDeleteButtonClick(id)}
       />
     </>
   );

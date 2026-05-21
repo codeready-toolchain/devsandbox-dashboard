@@ -68,13 +68,13 @@ export const getReadyCondition = (
    * Failure    False    * 27 Dec 2024, 18:21  * Failed   unknown playbook failure
    * Running    False     * 27 Dec 2024, 18:37 * Running  Running reconciliation
    */
-  if (!data || data?.items.length === 0) {
+  if (!data || data?.items?.length === 0) {
     return AnsibleStatus.NEW;
   }
 
   if (
-    !data?.items[0].status ||
-    data?.items[0]?.status?.conditions.length === 0
+    !data?.items[0]?.status ||
+    data?.items[0]?.status?.conditions?.length === 0
   ) {
     return AnsibleStatus.UNKNOWN;
   }

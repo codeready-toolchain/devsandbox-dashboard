@@ -35,6 +35,8 @@ import {
   kubeApiRef,
   aapApiRef,
   AnsibleBackendClient,
+  openclawApiRef,
+  OpenClawBackendClient,
   secureFetchApiRef,
   SecureFetchClient,
 } from './api';
@@ -104,6 +106,15 @@ export const sandboxPlugin = createPlugin({
       },
       factory: ({ configApi, secureFetchApi }) =>
         new AnsibleBackendClient({ configApi, secureFetchApi }),
+    }),
+    createApiFactory({
+      api: openclawApiRef,
+      deps: {
+        configApi: configApiRef,
+        secureFetchApi: secureFetchApiRef,
+      },
+      factory: ({ configApi, secureFetchApi }) =>
+        new OpenClawBackendClient({ configApi, secureFetchApi }),
     }),
   ],
 });

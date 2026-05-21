@@ -21,6 +21,7 @@ import AnsibleIcon from '../../assets/logos/ansible.svg';
 import OpenShiftAIIcon from '../../assets/logos/openshift-ai.svg';
 import DevSpacesIcon from '../../assets/logos/devspaces.svg';
 import OpenshiftVirtualizationIcon from '../../assets/logos/openshift-virtualization.svg';
+import OpenClawIcon from '../../assets/logos/openclaw.svg';
 
 export enum Product {
   OPENSHIFT_CONSOLE = 'openshift-console',
@@ -28,6 +29,7 @@ export enum Product {
   DEVSPACES = 'devspaces',
   AAP = 'ansible-automation-platform',
   OPENSHIFT_VIRT = 'openshift-virtualization',
+  OPENCLAW = 'openclaw',
 }
 
 const iconProps = { sx: { width: '16px' } };
@@ -178,6 +180,25 @@ export const productData: ProductData[] = [
       {
         icon: getSandboxCatalogCardIcon('success'),
         value: 'Comprehensive development and operations tools',
+      },
+    ],
+  },
+  {
+    id: Product.OPENCLAW,
+    title: 'OpenClaw',
+    image: OpenClawIcon,
+    description: [
+      {
+        icon: getSandboxCatalogCardIcon('success'),
+        value: 'Personalized AI Assistant',
+      },
+      {
+        icon: getSandboxCatalogCardIcon('success'),
+        value: 'Secured Deployment',
+      },
+      {
+        icon: getSandboxCatalogCardIcon('success'),
+        value: 'Customized for your needs',
       },
     ],
   },

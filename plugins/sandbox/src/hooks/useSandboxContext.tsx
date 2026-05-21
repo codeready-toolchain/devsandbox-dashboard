@@ -15,13 +15,14 @@
  */
 import { isEqual } from 'lodash';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { AAPData, SignupData } from '../types';
+import { AAPData, OpenClawItem, SignupData } from '../types';
 import { useApi, configApiRef } from '@backstage/core-plugin-api';
-import { aapApiRef, kubeApiRef, registerApiRef } from '../api';
+import { aapApiRef, kubeApiRef, openclawApiRef, registerApiRef } from '../api';
 import { useRecaptcha } from './useRecaptcha';
 import { LONG_INTERVAL, SandboxEnvironment, SHORT_INTERVAL } from '../const';
 import { signupDataToStatus } from '../utils/register-utils';
 import { AnsibleStatus, decode, getReadyCondition } from '../utils/aap-utils';
+import { OpenClawStatus, getOpenClawReadyCondition } from '../utils/openclaw-utils';
 import { errorMessage } from '../utils/common';
 import {
   useSegmentAnalytics,
@@ -46,6 +47,12 @@ interface SandboxContextType {
   ansibleUILink: string | undefined;
   ansibleError: string | null;
   ansibleStatus: AnsibleStatus;
+  openclawData: OpenClawItem | undefined;
+  openclawError: string | null;
+  openclawStatus: OpenClawStatus;
+  openclawUILink: string | undefined;
+  handleOpenClawInstance: (userNamespace: string, apiKeyValue: string) => void;
+  refetchOpenClaw: (userNamespace: string) => void;
   segmentTrackClick?: (data: SegmentTrackingData) => Promise<void>;
   marketoWebhookURL?: string;
   disabledIntegrations?: string[];
@@ -70,6 +77,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       SandboxEnvironment.PROD) !== SandboxEnvironment.DEV;
   useRecaptcha(isProd);
   const aapApi = useApi(aapApiRef);
+  const openclawApi = useApi(openclawApiRef);
   const kubeApi = useApi(kubeApiRef);
   const registerApi = useApi(registerApiRef);
   const [segmentWriteKey, setSegmentWriteKey] = useState<string>();
@@ -98,6 +106,13 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     AnsibleStatus.NEW,
   );
   const [ansibleError, setAnsibleError] = useState<string | null>(null);
+
+  const [openclawData, setOpenclawData] = React.useState<OpenClawItem | undefined>();
+  const [openclawStatus, setOpenclawStatus] = React.useState<OpenClawStatus>(
+    OpenClawStatus.NEW,
+  );
+  const [openclawUILink, setOpenclawUILink] = React.useState<string | undefined>();
+  const [openclawError, setOpenclawError] = useState<string | null>(null);
 
   const status = React.useMemo(
     () => (statusUnknown ? 'unknown' : signupDataToStatus(userData)),
@@ -211,6 +226,48 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const getOpenClawData = async (userNamespace: string): Promise<OpenClawStatus> => {
+    try {
+      const data = await openclawApi.getOpenClaw(userNamespace);
+      setOpenclawData(data);
+      const st = getOpenClawReadyCondition(data, e =>
+        setOpenclawError(errorMessage(e)),
+      );
+      setOpenclawStatus(st);
+      if (data?.status?.url) {
+        const url = new URL(data.status.url);
+        url.pathname = `${url.pathname.replace(/\/$/, '')}/integration/device-pairing/`;
+        setOpenclawUILink(url.toString());
+      }
+      return st;
+    } catch (e) {
+      setOpenclawError(errorMessage(e));
+      return OpenClawStatus.UNKNOWN;
+    }
+  };
+
+  const handleOpenClawInstance = async (
+    userNamespace: string,
+    apiKeyValue: string,
+  ) => {
+    const currentStatus = await getOpenClawData(userNamespace);
+
+    if (
+      currentStatus === OpenClawStatus.PROVISIONING ||
+      currentStatus === OpenClawStatus.READY
+    ) {
+      return;
+    }
+
+    try {
+      await openclawApi.createOpenClaw(userNamespace, apiKeyValue);
+      setOpenclawStatus(OpenClawStatus.PROVISIONING);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     fetchData(); // Initial fetch
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -285,6 +342,28 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData, ansibleStatus]);
 
+  React.useEffect(() => {
+    if (userData?.defaultUserNamespace) {
+      getOpenClawData(userData.defaultUserNamespace);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData?.defaultUserNamespace]);
+
+  React.useEffect(() => {
+    if (userData?.defaultUserNamespace && (openclawStatus === OpenClawStatus.NEW || openclawStatus === OpenClawStatus.PROVISIONING)) {
+      const handle = setInterval(
+        getOpenClawData,
+        SHORT_INTERVAL,
+        userData.defaultUserNamespace,
+      );
+      return () => {
+        clearInterval(handle);
+      };
+    }
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData?.defaultUserNamespace, openclawStatus]);
+
   return (
     <SandboxContext.Provider
       value={{
@@ -305,6 +384,12 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
         ansibleUILink,
         ansibleError,
         ansibleStatus,
+        openclawData,
+        openclawError,
+        openclawStatus,
+        openclawUILink,
+        handleOpenClawInstance,
+        refetchOpenClaw: getOpenClawData,
         segmentTrackClick: segmentAnalytics.trackClick,
         marketoWebhookURL,
         disabledIntegrations,

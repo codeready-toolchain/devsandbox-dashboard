@@ -20,6 +20,7 @@ import { Theme } from '@mui/material/styles';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useSandboxContext } from '../../hooks/useSandboxContext';
 import { AnsibleStatus } from '../../utils/aap-utils';
+import { OpenClawStatus } from '../../utils/openclaw-utils';
 import { Product } from './productData';
 
 type SandboxCatalogCardDeleteButtonProps = {
@@ -32,7 +33,7 @@ type SandboxCatalogCardDeleteButtonProps = {
 export const SandboxCatalogCardDeleteButton: React.FC<
   SandboxCatalogCardDeleteButtonProps
 > = ({ id, handleDeleteButtonClick, theme, isDeleting }) => {
-  const { ansibleStatus } = useSandboxContext();
+  const { ansibleStatus, openclawStatus } = useSandboxContext();
 
   if (
     id === Product.AAP &&
@@ -65,5 +66,39 @@ export const SandboxCatalogCardDeleteButton: React.FC<
       </Button>
     );
   }
+
+  if (
+    id === Product.OPENCLAW &&
+    (openclawStatus === OpenClawStatus.READY ||
+      openclawStatus === OpenClawStatus.PROVISIONING ||
+      openclawStatus === OpenClawStatus.NEW ||
+      openclawStatus === OpenClawStatus.FAILED)
+  ) {
+    return (
+      <Button
+        size="medium"
+        color="primary"
+        variant="contained"
+        data-testid="delete-openclaw"
+        onClick={() => {
+          handleDeleteButtonClick(id);
+        }}
+        endIcon={
+          isDeleting && (
+            <CircularProgress
+              size={20}
+              sx={{ color: theme.palette.common.white }}
+            />
+          )
+        }
+        sx={{
+          marginTop: theme.spacing(0.5),
+        }}
+      >
+        {openclawStatus === OpenClawStatus.READY ? 'Delete' : 'Stop'}
+      </Button>
+    );
+  }
+
   return null;
 };

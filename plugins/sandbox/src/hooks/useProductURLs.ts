@@ -34,6 +34,7 @@ export enum Intcmp {
   RHODS = '701Pe00000do2uiIAA',
   OPENSHIFT_VIRT = '701Pe00000dov6IIAQ',
   AAP = '701Pe00000dowQXIAY',
+  OPENCLAW = '',
 }
 
 const getAppsURL = (
@@ -74,6 +75,7 @@ export const productsURLMapping = (userData: SignupData | undefined) => {
         : '',
     },
     { id: Product.AAP, url: '' },
+    { id: Product.OPENCLAW, url: '' },
     {
       id: Product.OPENSHIFT_VIRT,
       url: isProvisioned

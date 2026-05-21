@@ -21,6 +21,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useSandboxContext } from '../../hooks/useSandboxContext';
 import { AnsibleStatus } from '../../utils/aap-utils';
+import { OpenClawStatus } from '../../utils/openclaw-utils';
 import { Product } from './productData';
 import { useTrackAnalytics } from '../../utils/eddl-utils';
 import { Intcmp } from '../../hooks/useProductURLs';
@@ -37,8 +38,14 @@ type SandboxCatalogCardButtonProps = {
 export const SandboxCatalogCardButton: React.FC<
   SandboxCatalogCardButtonProps
 > = ({ link, id, title, handleTryButtonClick, theme, refetchingUserData }) => {
-  const { loading, userFound, verificationRequired, userReady, ansibleStatus } =
-    useSandboxContext();
+  const {
+    loading,
+    userFound,
+    verificationRequired,
+    userReady,
+    ansibleStatus,
+    openclawStatus,
+  } = useSandboxContext();
   const [clicked, setClicked] = React.useState(false);
   const trackAnalytics = useTrackAnalytics();
 
@@ -60,6 +67,15 @@ export const SandboxCatalogCardButton: React.FC<
       }
       return 'Provision';
     }
+    if (id === Product.OPENCLAW) {
+      if (openclawStatus === OpenClawStatus.NEW || openclawStatus === OpenClawStatus.PROVISIONING) {
+        return 'Provisioning';
+      }
+      if (openclawStatus === OpenClawStatus.READY) {
+        return 'Launch';
+      }
+      return 'Provision';
+    }
     return 'Try it';
   })();
 
@@ -70,15 +86,26 @@ export const SandboxCatalogCardButton: React.FC<
     (refetchingUserData && clicked)
   ) {
     endIcon = <CircularProgress size={20} />;
-  } else if (id !== Product.AAP) {
-    endIcon = <OpenInNewIcon />;
-  } else if (
-    ansibleStatus === AnsibleStatus.UNKNOWN ||
-    ansibleStatus === AnsibleStatus.PROVISIONING
-  ) {
-    endIcon = <CircularProgress size={20} />;
+  } else if (id === Product.AAP) {
+    if (
+      ansibleStatus === AnsibleStatus.UNKNOWN ||
+      ansibleStatus === AnsibleStatus.PROVISIONING
+    ) {
+      endIcon = <CircularProgress size={20} />;
+    } else {
+      endIcon = null;
+    }
+  } else if (id === Product.OPENCLAW) {
+    if (
+      openclawStatus === OpenClawStatus.NEW ||
+      openclawStatus === OpenClawStatus.PROVISIONING
+    ) {
+      endIcon = <CircularProgress size={20} />;
+    } else {
+      endIcon = null;
+    }
   } else {
-    endIcon = null;
+    endIcon = <OpenInNewIcon />;
   }
 
   const buttonSx = {
@@ -105,6 +132,8 @@ export const SandboxCatalogCardButton: React.FC<
         return Intcmp.OPENSHIFT_VIRT;
       case Product.AAP:
         return Intcmp.AAP;
+      case Product.OPENCLAW:
+        return Intcmp.OPENCLAW;
       default:
         return undefined;
     }
@@ -121,7 +150,7 @@ export const SandboxCatalogCardButton: React.FC<
       // read href/isExitLink/targetHost. target="_blank" lets the browser open
       // the tab natively without depending on dpal.js re-navigation.
       // AAP has no href — it uses handleTryButtonClick for its own modal flow.
-      {...(id !== Product.AAP
+      {...(id !== Product.AAP && id !== Product.OPENCLAW
         ? { href: link, target: '_blank', rel: 'noopener noreferrer' }
         : {})}
       onClick={() => {

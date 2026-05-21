@@ -13,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-export * from './common';
-export * from './aap';
-export * from './openclaw';
-export * from './kube';
-export * from './registration';
+
+export type StatusCondition = {
+  type: string;
+  status: string;
+  reason: string;
+  message: string;
+};
