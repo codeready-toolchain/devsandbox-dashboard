@@ -9,6 +9,7 @@ A Backstage frontend plugin (`@red-hat-developer-hub/backstage-plugin-sandbox`) 
 ## Commands
 
 ### Development
+
 ```sh
 yarn install              # install dependencies
 yarn dev                  # start frontend + backend in parallel
@@ -16,12 +17,14 @@ yarn start                # start frontend only
 ```
 
 ### Build
+
 ```sh
 yarn build:all            # build all packages
 yarn tsc:full             # full type-check (no incremental)
 ```
 
 ### Test
+
 ```sh
 yarn test                 # run unit tests (via backstage-cli repo test)
 yarn test:all             # run all tests with coverage
@@ -32,6 +35,7 @@ yarn backstage-cli package test -- --testPathPattern="<pattern>"      # run a si
 Tests use Jest via `backstage-cli`, `@testing-library/react`, and MSW for API mocking. Test files live in `__tests__/` directories next to the code they test.
 
 ### Lint & Format
+
 ```sh
 yarn lint                 # lint changed files (since origin/master)
 yarn lint:all             # lint everything
@@ -39,12 +43,14 @@ yarn prettier:check       # check formatting
 ```
 
 ### E2E Tests (require OCP cluster + SSO credentials)
+
 ```sh
 make test-e2e SSO_USERNAME=... SSO_PASSWORD=...        # clones toolchain-e2e and runs tests
 make test-e2e-local SSO_USERNAME=... SSO_PASSWORD=...   # uses ../toolchain-e2e
 ```
 
 ### Local RHDH Deployment (requires podman)
+
 ```sh
 make start-rhdh-local     # clone rhdh-local, build plugin, start via podman-compose
 make stop-rhdh-local      # stop and clean up
@@ -55,6 +61,7 @@ make stop-rhdh-local      # stop and clean up
 ### Plugin Structure (`plugins/sandbox/src/`)
 
 **API layer** (`api/`): Backend service clients, all authenticated via `SecureFetchClient` which wraps OAuth2 tokens from Keycloak:
+
 - `RegistrationBackendClient` — user signup, verification, status polling
 - `KubeBackendClient` — Kubernetes API access (secrets)
 - `AnsibleBackendClient` — Ansible Automation Platform (AAP) instance lifecycle
@@ -70,6 +77,7 @@ make stop-rhdh-local      # stop and clean up
 ### Configuration
 
 Plugin config is defined in `app-config.yaml` under the `sandbox` key:
+
 - `sandbox.signupAPI` — registration service URL
 - `sandbox.kubeAPI` — Kubernetes API URL
 - `sandbox.recaptcha.siteKey` — Google reCAPTCHA site key
