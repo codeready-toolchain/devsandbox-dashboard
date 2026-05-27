@@ -39,7 +39,7 @@ export type OpenClawItem = {
     apiKey: string;
     idle?: boolean;
   };
-  status: {
+  status?: {
     conditions: StatusCondition[];
     url?: string;
   };
