@@ -247,12 +247,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     targetNamespace: string,
     apiKeyValue: string,
   ) => {
-    try {
-      await openclawApi.createOpenClaw(targetNamespace, apiKeyValue);
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error(e);
-    }
+    await openclawApi.createOpenClaw(targetNamespace, apiKeyValue);
   };
 
   const getOpenClawData = async (
@@ -281,9 +276,15 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       if (!data && pendingApiKey.current) {
         const apiKey = pendingApiKey.current;
         pendingApiKey.current = undefined;
-        await createClawInNamespace(targetNamespace, apiKey);
-        setOpenclawStatus(OpenClawStatus.PROVISIONING);
-        return OpenClawStatus.PROVISIONING;
+        try {
+          await createClawInNamespace(targetNamespace, apiKey);
+          setOpenclawStatus(OpenClawStatus.PROVISIONING);
+          return OpenClawStatus.PROVISIONING;
+        } catch (e) {
+          setOpenclawError(errorMessage(e));
+          setOpenclawStatus(OpenClawStatus.UNKNOWN);
+          return OpenClawStatus.UNKNOWN;
+        }
       }
 
       const st = getOpenClawReadyCondition(data, e =>
@@ -331,6 +332,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error(e);
+        setOpenclawError(errorMessage(e));
       }
       return;
     }
