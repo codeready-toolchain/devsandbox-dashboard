@@ -64,6 +64,12 @@ export const getOpenClawReadyCondition = (
   }
 
   if (!data.status || !data.status.conditions?.length) {
+    if (data.metadata?.creationTimestamp) {
+      console.log(
+        'claw exists but has no status conditions yet, treating as provisioning',
+      );
+      return OpenClawStatus.PROVISIONING;
+    }
     console.log('claw is new, its status is undefined or empty');
     return OpenClawStatus.NEW;
   }
