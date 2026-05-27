@@ -207,7 +207,7 @@ export const SandboxCatalogCard: React.FC<SandboxCatalogCardProps> = ({
         return;
       }
       if (openclawStatus === OpenClawStatus.READY && openclawUILink) {
-        window.open(openclawUILink, '_blank');
+        window.open(openclawUILink, '_blank', 'noopener,noreferrer');
       } else if (openclawStatus === OpenClawStatus.IDLED) {
         handleOpenClawInstance(userData.defaultUserNamespace);
       } else {
