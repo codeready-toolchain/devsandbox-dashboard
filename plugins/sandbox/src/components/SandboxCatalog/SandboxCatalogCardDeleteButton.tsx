@@ -30,75 +30,55 @@ type SandboxCatalogCardDeleteButtonProps = {
   isDeleting: boolean;
 };
 
+const deletableAAPStatuses: string[] = [
+  AnsibleStatus.READY,
+  AnsibleStatus.PROVISIONING,
+  AnsibleStatus.UNKNOWN,
+];
+
+const deletableOpenClawStatuses: string[] = [
+  OpenClawStatus.READY,
+  OpenClawStatus.PROVISIONING,
+  OpenClawStatus.NEW,
+  OpenClawStatus.FAILED,
+];
+
 export const SandboxCatalogCardDeleteButton: React.FC<
   SandboxCatalogCardDeleteButtonProps
 > = ({ id, handleDeleteButtonClick, theme, isDeleting }) => {
   const { ansibleStatus, openclawStatus } = useSandboxContext();
 
-  if (
-    id === Product.AAP &&
-    (ansibleStatus === AnsibleStatus.READY ||
-      ansibleStatus === AnsibleStatus.PROVISIONING ||
-      ansibleStatus === AnsibleStatus.UNKNOWN)
-  ) {
-    return (
-      <Button
-        size="medium"
-        color="primary"
-        variant="contained"
-        data-testid="delete-aap"
-        onClick={() => {
-          handleDeleteButtonClick(id);
-        }}
-        endIcon={
-          isDeleting && (
-            <CircularProgress
-              size={20}
-              sx={{ color: theme.palette.common.white }}
-            />
-          )
-        }
-        sx={{
-          marginTop: theme.spacing(0.5),
-        }}
-      >
-        {ansibleStatus === AnsibleStatus.READY ? 'Delete' : 'Stop'}
-      </Button>
-    );
-  }
+  const shouldShow =
+    (id === Product.AAP && deletableAAPStatuses.includes(ansibleStatus)) ||
+    (id === Product.OPENCLAW &&
+      deletableOpenClawStatuses.includes(openclawStatus));
 
-  if (
-    id === Product.OPENCLAW &&
-    (openclawStatus === OpenClawStatus.READY ||
-      openclawStatus === OpenClawStatus.PROVISIONING ||
-      openclawStatus === OpenClawStatus.NEW ||
-      openclawStatus === OpenClawStatus.FAILED)
-  ) {
-    return (
-      <Button
-        size="medium"
-        color="primary"
-        variant="contained"
-        data-testid="delete-openclaw"
-        onClick={() => {
-          handleDeleteButtonClick(id);
-        }}
-        endIcon={
-          isDeleting && (
-            <CircularProgress
-              size={20}
-              sx={{ color: theme.palette.common.white }}
-            />
-          )
-        }
-        sx={{
-          marginTop: theme.spacing(0.5),
-        }}
-      >
-        {openclawStatus === OpenClawStatus.READY ? 'Delete' : 'Stop'}
-      </Button>
-    );
-  }
+  if (!shouldShow) return null;
 
-  return null;
+  const isReady =
+    (id === Product.AAP && ansibleStatus === AnsibleStatus.READY) ||
+    (id === Product.OPENCLAW && openclawStatus === OpenClawStatus.READY);
+
+  return (
+    <Button
+      size="medium"
+      color="primary"
+      variant="contained"
+      data-testid={`delete-${id}`}
+      onClick={() => handleDeleteButtonClick(id)}
+      endIcon={
+        isDeleting && (
+          <CircularProgress
+            size={20}
+            sx={{ color: theme.palette.common.white }}
+          />
+        )
+      }
+      sx={{
+        marginTop: theme.spacing(0.5),
+      }}
+    >
+      {isReady ? 'Delete' : 'Stop'}
+    </Button>
+  );
 };

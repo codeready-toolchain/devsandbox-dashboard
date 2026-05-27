@@ -59,7 +59,9 @@ describe('SandboxCatalogCardDeleteButton', () => {
 
   it('renders only for AAP card', () => {
     renderButton({ id: Product.OPENSHIFT_CONSOLE });
-    const deleteButton = document.querySelector('[data-testid="delete-aap"]');
+    const deleteButton = document.querySelector(
+      `[data-testid="delete-${Product.OPENSHIFT_CONSOLE}"]`,
+    );
     expect(deleteButton).toBeNull();
   });
 
