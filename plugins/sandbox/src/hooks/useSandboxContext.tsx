@@ -28,6 +28,11 @@ import {
   isSpaceRequestReady,
   getSpaceRequestNamespace,
 } from '../utils/openclaw-utils';
+
+interface OpenClawDataResult {
+  status: OpenClawStatus;
+  namespace: string | undefined;
+}
 import { errorMessage } from '../utils/common';
 import {
   useSegmentAnalytics,
@@ -58,7 +63,7 @@ interface SandboxContextType {
   openclawUILink: string | undefined;
   handleOpenClawInstance: (userNamespace: string, apiKeyValue?: string) => void;
   deleteOpenClaw: (userNamespace: string) => Promise<void>;
-  refetchOpenClaw: (userNamespace: string) => void;
+  refetchOpenClaw: (userNamespace: string) => Promise<OpenClawDataResult>;
   segmentTrackClick?: (data: SegmentTrackingData) => Promise<void>;
   marketoWebhookURL?: string;
   disabledIntegrations?: string[];
@@ -252,20 +257,20 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const getOpenClawData = async (
     userNamespace: string,
-  ): Promise<OpenClawStatus> => {
+  ): Promise<OpenClawDataResult> => {
     try {
       const sr = await openclawApi.getSpaceRequest(userNamespace);
       setSpaceRequestData(sr);
 
       if (!sr) {
         setOpenclawStatus(OpenClawStatus.NEW);
-        return OpenClawStatus.NEW;
+        return { status: OpenClawStatus.NEW, namespace: undefined };
       }
 
       const targetNamespace = getSpaceRequestNamespace(sr);
       if (!targetNamespace) {
         setOpenclawStatus(OpenClawStatus.PROVISIONING);
-        return OpenClawStatus.PROVISIONING;
+        return { status: OpenClawStatus.PROVISIONING, namespace: undefined };
       }
 
       setClawNamespace(targetNamespace);
@@ -279,11 +284,11 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
         try {
           await createClawInNamespace(targetNamespace, apiKey);
           setOpenclawStatus(OpenClawStatus.PROVISIONING);
-          return OpenClawStatus.PROVISIONING;
+          return { status: OpenClawStatus.PROVISIONING, namespace: targetNamespace };
         } catch (e) {
           setOpenclawError(errorMessage(e));
           setOpenclawStatus(OpenClawStatus.UNKNOWN);
-          return OpenClawStatus.UNKNOWN;
+          return { status: OpenClawStatus.UNKNOWN, namespace: targetNamespace };
         }
       }
 
@@ -302,13 +307,13 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (st === OpenClawStatus.UNKNOWN && isSpaceRequestReady(sr)) {
         setOpenclawStatus(OpenClawStatus.PROVISIONING);
-        return OpenClawStatus.PROVISIONING;
+        return { status: OpenClawStatus.PROVISIONING, namespace: targetNamespace };
       }
 
-      return st;
+      return { status: st, namespace: targetNamespace };
     } catch (e) {
       setOpenclawError(errorMessage(e));
-      return OpenClawStatus.UNKNOWN;
+      return { status: OpenClawStatus.UNKNOWN, namespace: undefined };
     }
   };
 
@@ -316,7 +321,8 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     userNamespace: string,
     apiKeyValue?: string,
   ) => {
-    const currentStatus = await getOpenClawData(userNamespace);
+    const { status: currentStatus, namespace: resolvedNamespace } =
+      await getOpenClawData(userNamespace);
 
     if (
       currentStatus === OpenClawStatus.PROVISIONING ||
@@ -325,9 +331,9 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       return;
     }
 
-    if (currentStatus === OpenClawStatus.IDLED && clawNamespace) {
+    if (currentStatus === OpenClawStatus.IDLED && resolvedNamespace) {
       try {
-        await openclawApi.unIdleOpenClaw(clawNamespace);
+        await openclawApi.unIdleOpenClaw(resolvedNamespace);
         setOpenclawStatus(OpenClawStatus.PROVISIONING);
       } catch (e) {
         // eslint-disable-next-line no-console
