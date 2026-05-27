@@ -39,7 +39,6 @@ const deletableAAPStatuses: string[] = [
 const deletableOpenClawStatuses: string[] = [
   OpenClawStatus.READY,
   OpenClawStatus.PROVISIONING,
-  OpenClawStatus.NEW,
   OpenClawStatus.FAILED,
 ];
 
