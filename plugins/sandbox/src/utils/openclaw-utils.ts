@@ -13,15 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { OpenClawItem, StatusCondition } from '../types';
+import { OpenClawItem, SpaceRequestItem, StatusCondition } from '../types';
 
 export enum OpenClawStatus {
-  NEW = 'new',
-  PROVISIONING = 'provisioning',
-  UNKNOWN = 'unknown',
-  READY = 'ready',
-  FAILED = 'failed',
-  IDLED = 'idled',
+  NEW = 'new', // nothing exists yet
+  PROVISIONING = 'provisioning', // provisioning/booting
+  UNKNOWN = 'unknown', // unknown status, might be provisioning/booting and, it doesn't have a status condition yet
+  READY = 'ready', // ready to use
+  FAILED = 'failed', // failed to provision
+  IDLED = 'idled', // idled and not available to use
 }
 
 const isConditionTrue = (
@@ -99,6 +99,34 @@ export const getOpenClawReadyCondition = (
 
   console.log('claw is unknown');
   return OpenClawStatus.UNKNOWN;
+};
+
+export const newSpaceRequestObject = (namespace: string): string =>
+  JSON.stringify({
+    apiVersion: 'toolchain.dev.openshift.com/v1alpha1',
+    kind: 'SpaceRequest',
+    metadata: {
+      namespace: namespace,
+      name: 'claw',
+    },
+    spec: {
+      tierName: 'claw',
+    },
+  });
+
+export const isSpaceRequestReady = (sr: SpaceRequestItem | undefined): boolean => {
+  if (!sr?.status?.conditions) {
+    return false;
+  }
+  const [ready] = isConditionTrue('Ready', sr.status.conditions);
+  return ready;
+};
+
+export const getSpaceRequestNamespace = (sr: SpaceRequestItem | undefined): string | undefined => {
+  if (!isSpaceRequestReady(sr)) {
+    return undefined;
+  }
+  return sr?.status?.namespaceAccess?.[0]?.name;
 };
 
 export const newOpenClawObject = (namespace: string, name: string, secretName: string): string =>

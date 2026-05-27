@@ -35,7 +35,7 @@ import {
 } from '../Modals';
 import { useSandboxContext } from '../../hooks/useSandboxContext';
 import { useApi } from '@backstage/core-plugin-api';
-import { aapApiRef, kubeApiRef, openclawApiRef } from '../../api';
+import { aapApiRef, kubeApiRef } from '../../api';
 import { Product } from './productData';
 import { OpenClawStatus } from '../../utils/openclaw-utils';
 import { signupDataToStatus } from '../../utils/register-utils';
@@ -111,16 +111,15 @@ export const SandboxCatalogCard: React.FC<SandboxCatalogCardProps> = ({
   const theme = useTheme();
   const kubeApi = useApi(kubeApiRef);
   const aapApi = useApi(aapApiRef);
-  const openclawApi = useApi(openclawApiRef);
   let { userData, userFound, userReady, verificationRequired } =
     useSandboxContext();
   const {
     handleAAPInstance,
     handleOpenClawInstance,
+    deleteOpenClaw,
     signupUser,
     refetchUserData,
     refetchAAP,
-    refetchOpenClaw,
     openclawStatus,
     openclawUILink,
   } = useSandboxContext();
@@ -259,13 +258,7 @@ export const SandboxCatalogCard: React.FC<SandboxCatalogCardProps> = ({
     }
     if (pdt === Product.OPENCLAW) {
       setDeleteOpenclawModalOpen(false);
-      try {
-        await openclawApi.deleteOpenClawCR(userNamespace);
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.error(e);
-      }
-      refetchOpenClaw(userNamespace);
+      await deleteOpenClaw(userNamespace);
     }
     setDeleting(false);
   };

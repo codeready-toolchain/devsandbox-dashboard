@@ -71,7 +71,7 @@ export const SandboxCatalogCardButton: React.FC<
       if (openclawStatus === OpenClawStatus.IDLED) {
         return 'Reprovision';
       }
-      if (openclawStatus === OpenClawStatus.NEW || openclawStatus === OpenClawStatus.PROVISIONING) {
+      if (openclawStatus === OpenClawStatus.PROVISIONING) {
         return 'Provisioning';
       }
       if (openclawStatus === OpenClawStatus.READY) {
@@ -99,10 +99,7 @@ export const SandboxCatalogCardButton: React.FC<
       endIcon = null;
     }
   } else if (id === Product.OPENCLAW) {
-    if (
-      openclawStatus === OpenClawStatus.NEW ||
-      openclawStatus === OpenClawStatus.PROVISIONING
-    ) {
+    if (openclawStatus === OpenClawStatus.PROVISIONING) {
       endIcon = <CircularProgress size={20} />;
     } else {
       endIcon = null;

@@ -147,10 +147,7 @@ export const OpenClawLaunchInfoModal: React.FC<
     );
   }
 
-  if (
-    openclawStatus === OpenClawStatus.PROVISIONING ||
-    openclawStatus === OpenClawStatus.NEW
-  ) {
+  if (openclawStatus === OpenClawStatus.PROVISIONING) {
     return (
       <Dialog
         open={modalOpen}

@@ -15,14 +15,14 @@
  */
 import { isEqual } from 'lodash';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { AAPData, OpenClawItem, SignupData } from '../types';
+import { AAPData, OpenClawItem, SpaceRequestItem, SignupData } from '../types';
 import { useApi, configApiRef } from '@backstage/core-plugin-api';
 import { aapApiRef, kubeApiRef, openclawApiRef, registerApiRef } from '../api';
 import { useRecaptcha } from './useRecaptcha';
 import { LONG_INTERVAL, SandboxEnvironment, SHORT_INTERVAL } from '../const';
 import { signupDataToStatus } from '../utils/register-utils';
 import { AnsibleStatus, decode, getReadyCondition } from '../utils/aap-utils';
-import { OpenClawStatus, getOpenClawReadyCondition } from '../utils/openclaw-utils';
+import { OpenClawStatus, getOpenClawReadyCondition, isSpaceRequestReady, getSpaceRequestNamespace } from '../utils/openclaw-utils';
 import { errorMessage } from '../utils/common';
 import {
   useSegmentAnalytics,
@@ -52,6 +52,7 @@ interface SandboxContextType {
   openclawStatus: OpenClawStatus;
   openclawUILink: string | undefined;
   handleOpenClawInstance: (userNamespace: string, apiKeyValue?: string) => void;
+  deleteOpenClaw: (userNamespace: string) => Promise<void>;
   refetchOpenClaw: (userNamespace: string) => void;
   segmentTrackClick?: (data: SegmentTrackingData) => Promise<void>;
   marketoWebhookURL?: string;
@@ -107,6 +108,9 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   );
   const [ansibleError, setAnsibleError] = useState<string | null>(null);
 
+  const [, setSpaceRequestData] = React.useState<SpaceRequestItem | undefined>();
+  const [clawNamespace, setClawNamespace] = React.useState<string | undefined>();
+  const pendingApiKey = React.useRef<string | undefined>(undefined);
   const [openclawData, setOpenclawData] = React.useState<OpenClawItem | undefined>();
   const [openclawStatus, setOpenclawStatus] = React.useState<OpenClawStatus>(
     OpenClawStatus.NEW,
@@ -226,10 +230,47 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const createClawInNamespace = async (
+    targetNamespace: string,
+    apiKeyValue: string,
+  ) => {
+    try {
+      await openclawApi.createOpenClaw(targetNamespace, apiKeyValue);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(e);
+    }
+  };
+
   const getOpenClawData = async (userNamespace: string): Promise<OpenClawStatus> => {
     try {
-      const data = await openclawApi.getOpenClaw(userNamespace);
+      const sr = await openclawApi.getSpaceRequest(userNamespace);
+      setSpaceRequestData(sr);
+
+      if (!sr) {
+        setOpenclawStatus(OpenClawStatus.NEW);
+        return OpenClawStatus.NEW;
+      }
+
+      const targetNamespace = getSpaceRequestNamespace(sr);
+      if (!targetNamespace) {
+        setOpenclawStatus(OpenClawStatus.PROVISIONING);
+        return OpenClawStatus.PROVISIONING;
+      }
+
+      setClawNamespace(targetNamespace);
+
+      const data = await openclawApi.getOpenClaw(targetNamespace);
       setOpenclawData(data);
+
+      if (!data && pendingApiKey.current) {
+        const apiKey = pendingApiKey.current;
+        pendingApiKey.current = undefined;
+        await createClawInNamespace(targetNamespace, apiKey);
+        setOpenclawStatus(OpenClawStatus.PROVISIONING);
+        return OpenClawStatus.PROVISIONING;
+      }
+
       const st = getOpenClawReadyCondition(data, e =>
         setOpenclawError(errorMessage(e)),
       );
@@ -239,6 +280,12 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
         url.pathname = `${url.pathname.replace(/\/$/, '')}/integration/device-pairing/`;
         setOpenclawUILink(url.toString());
       }
+
+      if (st === OpenClawStatus.UNKNOWN && isSpaceRequestReady(sr)) {
+        setOpenclawStatus(OpenClawStatus.PROVISIONING);
+        return OpenClawStatus.PROVISIONING;
+      }
+
       return st;
     } catch (e) {
       setOpenclawError(errorMessage(e));
@@ -259,9 +306,9 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       return;
     }
 
-    if (currentStatus === OpenClawStatus.IDLED) {
+    if (currentStatus === OpenClawStatus.IDLED && clawNamespace) {
       try {
-        await openclawApi.unIdleOpenClaw(userNamespace);
+        await openclawApi.unIdleOpenClaw(clawNamespace);
         setOpenclawStatus(OpenClawStatus.PROVISIONING);
       } catch (e) {
         // eslint-disable-next-line no-console
@@ -275,8 +322,28 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     try {
-      await openclawApi.createOpenClaw(userNamespace, apiKeyValue);
+      pendingApiKey.current = apiKeyValue;
+      await openclawApi.createSpaceRequest(userNamespace);
       setOpenclawStatus(OpenClawStatus.PROVISIONING);
+    } catch (e) {
+      pendingApiKey.current = undefined;
+      // eslint-disable-next-line no-console
+      console.error(e);
+    }
+  };
+
+  const deleteOpenClaw = async (userNamespace: string) => {
+    try {
+      if (clawNamespace) {
+        await openclawApi.deleteOpenClawCR(clawNamespace);
+      }
+      await openclawApi.deleteSpaceRequest(userNamespace);
+      setClawNamespace(undefined);
+      setSpaceRequestData(undefined);
+      setOpenclawData(undefined);
+      setOpenclawStatus(OpenClawStatus.NEW);
+      setOpenclawUILink(undefined);
+      setOpenclawError(null);
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error(e);
@@ -365,7 +432,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [userData?.defaultUserNamespace]);
 
   React.useEffect(() => {
-    if (userData?.defaultUserNamespace && (openclawStatus === OpenClawStatus.NEW || openclawStatus === OpenClawStatus.PROVISIONING)) {
+    if (userData?.defaultUserNamespace && openclawStatus === OpenClawStatus.PROVISIONING) {
       const handle = setInterval(
         getOpenClawData,
         SHORT_INTERVAL,
@@ -404,6 +471,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
         openclawStatus,
         openclawUILink,
         handleOpenClawInstance,
+        deleteOpenClaw,
         refetchOpenClaw: getOpenClawData,
         segmentTrackClick: segmentAnalytics.trackClick,
         marketoWebhookURL,

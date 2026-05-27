@@ -16,6 +16,19 @@
 
 import { StatusCondition } from './common';
 
+export type SpaceRequestItem = {
+  metadata: {
+    name: string;
+  };
+  spec: {
+    tierName: string;
+  };
+  status?: {
+    conditions?: StatusCondition[];
+    namespaceAccess?: { name: string; secretRef: string }[];
+  };
+};
+
 export type OpenClawItem = {
   metadata: {
     name: string;

@@ -16,8 +16,8 @@
 
 import { ConfigApi } from '@backstage/core-plugin-api';
 import { errorMessage } from '../utils/common';
-import { newOpenClawObject, newOpenClawAPIKeySecretObject } from '../utils/openclaw-utils';
-import { OpenClawItem } from '../types';
+import { newOpenClawObject, newOpenClawAPIKeySecretObject, newSpaceRequestObject } from '../utils/openclaw-utils';
+import { OpenClawItem, SpaceRequestItem } from '../types';
 import { SecureFetchApi } from './SecureFetchClient';
 
 export type OpenClawBackendClientOptions = {
@@ -27,6 +27,9 @@ export type OpenClawBackendClientOptions = {
 
 const clawName = 'claw';
 export interface OpenClawService {
+  getSpaceRequest(namespace: string): Promise<SpaceRequestItem | undefined>;
+  createSpaceRequest(namespace: string): Promise<void>;
+  deleteSpaceRequest(namespace: string): Promise<void>;
   getOpenClaw(namespace: string): Promise<OpenClawItem | undefined>;
   createOpenClaw(namespace: string, apiKeyValue: string): Promise<void>;
   unIdleOpenClaw(namespace: string): Promise<void>;
@@ -45,6 +48,55 @@ export class OpenClawBackendClient implements OpenClawService {
   private readonly kubeAPI = async (): Promise<string> => {
     const kubeAPI = this.configApi.getString('sandbox.kubeAPI');
     return kubeAPI;
+  };
+
+  getSpaceRequest = async (
+    namespace: string,
+  ): Promise<SpaceRequestItem | undefined> => {
+    const kubeApi = await this.kubeAPI();
+    const url = `/apis/toolchain.dev.openshift.com/v1alpha1/namespaces/${namespace}/spacerequests/claw`;
+    const response = await this.secureFetchApi.fetch(`${kubeApi}${url}`, {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return undefined;
+      }
+      const error = await response.json();
+      throw new Error(errorMessage(error));
+    }
+    return response.json();
+  };
+
+  createSpaceRequest = async (namespace: string): Promise<void> => {
+    const kubeApi = await this.kubeAPI();
+    const url = `/apis/toolchain.dev.openshift.com/v1alpha1/namespaces/${namespace}/spacerequests`;
+    const response = await this.secureFetchApi.fetch(`${kubeApi}${url}`, {
+      method: 'POST',
+      body: newSpaceRequestObject(namespace),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok && response.status !== 409) {
+      const error = await response.json();
+      throw new Error(errorMessage(error));
+    }
+  };
+
+  deleteSpaceRequest = async (namespace: string): Promise<void> => {
+    const kubeApi = await this.kubeAPI();
+    const url = `/apis/toolchain.dev.openshift.com/v1alpha1/namespaces/${namespace}/spacerequests/claw`;
+    const response = await this.secureFetchApi.fetch(`${kubeApi}${url}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok && response.status !== 404) {
+      const error = await response.json();
+      throw new Error(errorMessage(error));
+    }
   };
 
   getOpenClaw = async (
