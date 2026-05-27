@@ -359,21 +359,26 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const deleteOpenClaw = async (userNamespace: string) => {
-    try {
-      if (clawNamespace) {
-        await openclawApi.deleteOpenClawCR(clawNamespace);
+    const results = await Promise.allSettled([
+      clawNamespace
+        ? openclawApi.deleteOpenClawCR(clawNamespace)
+        : Promise.resolve(),
+      openclawApi.deleteSpaceRequest(userNamespace),
+    ]);
+
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        // eslint-disable-next-line no-console
+        console.error(result.reason);
       }
-      await openclawApi.deleteSpaceRequest(userNamespace);
-      setClawNamespace(undefined);
-      setSpaceRequestData(undefined);
-      setOpenclawData(undefined);
-      setOpenclawStatus(OpenClawStatus.NEW);
-      setOpenclawUILink(undefined);
-      setOpenclawError(null);
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error(e);
     }
+
+    setClawNamespace(undefined);
+    setSpaceRequestData(undefined);
+    setOpenclawData(undefined);
+    setOpenclawStatus(OpenClawStatus.NEW);
+    setOpenclawUILink(undefined);
+    setOpenclawError(null);
   };
 
   useEffect(() => {
