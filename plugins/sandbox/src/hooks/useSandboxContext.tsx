@@ -22,7 +22,12 @@ import { useRecaptcha } from './useRecaptcha';
 import { LONG_INTERVAL, SandboxEnvironment, SHORT_INTERVAL } from '../const';
 import { signupDataToStatus } from '../utils/register-utils';
 import { AnsibleStatus, decode, getReadyCondition } from '../utils/aap-utils';
-import { OpenClawStatus, getOpenClawReadyCondition, isSpaceRequestReady, getSpaceRequestNamespace } from '../utils/openclaw-utils';
+import {
+  OpenClawStatus,
+  getOpenClawReadyCondition,
+  isSpaceRequestReady,
+  getSpaceRequestNamespace,
+} from '../utils/openclaw-utils';
 import { errorMessage } from '../utils/common';
 import {
   useSegmentAnalytics,
@@ -108,14 +113,22 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   );
   const [ansibleError, setAnsibleError] = useState<string | null>(null);
 
-  const [, setSpaceRequestData] = React.useState<SpaceRequestItem | undefined>();
-  const [clawNamespace, setClawNamespace] = React.useState<string | undefined>();
+  const [, setSpaceRequestData] = React.useState<
+    SpaceRequestItem | undefined
+  >();
+  const [clawNamespace, setClawNamespace] = React.useState<
+    string | undefined
+  >();
   const pendingApiKey = React.useRef<string | undefined>(undefined);
-  const [openclawData, setOpenclawData] = React.useState<OpenClawItem | undefined>();
+  const [openclawData, setOpenclawData] = React.useState<
+    OpenClawItem | undefined
+  >();
   const [openclawStatus, setOpenclawStatus] = React.useState<OpenClawStatus>(
     OpenClawStatus.NEW,
   );
-  const [openclawUILink, setOpenclawUILink] = React.useState<string | undefined>();
+  const [openclawUILink, setOpenclawUILink] = React.useState<
+    string | undefined
+  >();
   const [openclawError, setOpenclawError] = useState<string | null>(null);
 
   const status = React.useMemo(
@@ -242,7 +255,9 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const getOpenClawData = async (userNamespace: string): Promise<OpenClawStatus> => {
+  const getOpenClawData = async (
+    userNamespace: string,
+  ): Promise<OpenClawStatus> => {
     try {
       const sr = await openclawApi.getSpaceRequest(userNamespace);
       setSpaceRequestData(sr);
@@ -277,7 +292,10 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       setOpenclawStatus(st);
       if (data?.status?.url) {
         const url = new URL(data.status.url);
-        url.pathname = `${url.pathname.replace(/\/$/, '')}/integration/device-pairing/`;
+        url.pathname = `${url.pathname.replace(
+          /\/$/,
+          '',
+        )}/integration/device-pairing/`;
         setOpenclawUILink(url.toString());
       }
 
@@ -432,7 +450,10 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [userData?.defaultUserNamespace]);
 
   React.useEffect(() => {
-    if (userData?.defaultUserNamespace && openclawStatus === OpenClawStatus.PROVISIONING) {
+    if (
+      userData?.defaultUserNamespace &&
+      openclawStatus === OpenClawStatus.PROVISIONING
+    ) {
       const handle = setInterval(
         getOpenClawData,
         SHORT_INTERVAL,

@@ -46,12 +46,8 @@ export const OpenClawLaunchInfoModal: React.FC<
   OpenClawLaunchInfoModalProps
 > = ({ modalOpen, setOpen }) => {
   const theme = useTheme();
-  const {
-    userData,
-    openclawError,
-    openclawStatus,
-    handleOpenClawInstance,
-  } = useSandboxContext();
+  const { userData, openclawError, openclawStatus, handleOpenClawInstance } =
+    useSandboxContext();
 
   const [apiKey, setApiKey] = useState('');
   const [apiKeyError, setApiKeyError] = useState(false);
@@ -100,9 +96,7 @@ export const OpenClawLaunchInfoModal: React.FC<
                 fontSize: 28,
               }}
             />
-            <div style={{ width: '30rem' }}>
-              OpenClaw instance provisioned
-            </div>
+            <div style={{ width: '30rem' }}>OpenClaw instance provisioned</div>
           </div>
         </DialogTitle>
         <IconButton
@@ -167,9 +161,7 @@ export const OpenClawLaunchInfoModal: React.FC<
           sx={{ fontWeight: 700, padding: '32px 24px 0 24px' }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '30rem' }}>
-              Provisioning OpenClaw instance
-            </div>
+            <div style={{ width: '30rem' }}>Provisioning OpenClaw instance</div>
           </div>
         </DialogTitle>
         <IconButton

@@ -227,9 +227,7 @@ export const SandboxCatalogCard: React.FC<SandboxCatalogCardProps> = ({
     const userNamespace = userData?.defaultUserNamespace;
     if (!userNamespace) {
       // eslint-disable-next-line
-      console.error(
-        'unable to delete instance. user namespace is undefined',
-      );
+      console.error('unable to delete instance. user namespace is undefined');
       return;
     }
     if (pdt === Product.AAP) {
@@ -344,7 +342,11 @@ export const SandboxCatalogCard: React.FC<SandboxCatalogCardProps> = ({
           <SandboxCatalogCardDeleteButton
             id={id}
             theme={theme}
-            handleDeleteButtonClick={() => id === Product.OPENCLAW ? setDeleteOpenclawModalOpen(true) : setDeleteAnsibleModalOpen(true)}
+            handleDeleteButtonClick={() =>
+              id === Product.OPENCLAW
+                ? setDeleteOpenclawModalOpen(true)
+                : setDeleteAnsibleModalOpen(true)
+            }
             isDeleting={deleting}
           />
         </CardActions>

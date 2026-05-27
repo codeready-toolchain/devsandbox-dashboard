@@ -63,20 +63,14 @@ export const getOpenClawReadyCondition = (
     return OpenClawStatus.IDLED;
   }
 
-  if (
-    !data.status ||
-    !data.status.conditions?.length
-  ) {
+  if (!data.status || !data.status.conditions?.length) {
     console.log('claw is new, its status is undefined or empty');
     return OpenClawStatus.NEW;
   }
 
   const conditions = data?.status?.conditions;
 
-  const [isSuccessful] = isConditionTrue(
-    'Ready',
-    conditions,
-  );
+  const [isSuccessful] = isConditionTrue('Ready', conditions);
   if (isSuccessful) {
     console.log('claw is ready');
     return OpenClawStatus.READY;
@@ -91,7 +85,10 @@ export const getOpenClawReadyCondition = (
     return OpenClawStatus.FAILED;
   }
 
-  const [isProvisioning, conditionProvisioning] = isConditionFalse('Ready', conditions);
+  const [isProvisioning, conditionProvisioning] = isConditionFalse(
+    'Ready',
+    conditions,
+  );
   if (isProvisioning && conditionProvisioning?.reason === 'Provisioning') {
     console.log('claw is provisioning');
     return OpenClawStatus.PROVISIONING;
@@ -114,7 +111,9 @@ export const newSpaceRequestObject = (namespace: string): string =>
     },
   });
 
-export const isSpaceRequestReady = (sr: SpaceRequestItem | undefined): boolean => {
+export const isSpaceRequestReady = (
+  sr: SpaceRequestItem | undefined,
+): boolean => {
   if (!sr?.status?.conditions) {
     return false;
   }
@@ -122,14 +121,20 @@ export const isSpaceRequestReady = (sr: SpaceRequestItem | undefined): boolean =
   return ready;
 };
 
-export const getSpaceRequestNamespace = (sr: SpaceRequestItem | undefined): string | undefined => {
+export const getSpaceRequestNamespace = (
+  sr: SpaceRequestItem | undefined,
+): string | undefined => {
   if (!isSpaceRequestReady(sr)) {
     return undefined;
   }
   return sr?.status?.namespaceAccess?.[0]?.name;
 };
 
-export const newOpenClawObject = (namespace: string, name: string, secretName: string): string =>
+export const newOpenClawObject = (
+  namespace: string,
+  name: string,
+  secretName: string,
+): string =>
   JSON.stringify({
     apiVersion: 'claw.sandbox.redhat.com/v1alpha1',
     kind: 'Claw',
@@ -157,7 +162,11 @@ export const newOpenClawObject = (namespace: string, name: string, secretName: s
     },
   });
 
-export const newOpenClawAPIKeySecretObject = (namespace: string, name: string, apiKeyValue: string): string =>
+export const newOpenClawAPIKeySecretObject = (
+  namespace: string,
+  name: string,
+  apiKeyValue: string,
+): string =>
   JSON.stringify({
     apiVersion: 'v1',
     kind: 'Secret',
@@ -170,5 +179,5 @@ export const newOpenClawAPIKeySecretObject = (namespace: string, name: string, a
     },
     stringData: {
       'api-key': apiKeyValue,
-    }
+    },
   });

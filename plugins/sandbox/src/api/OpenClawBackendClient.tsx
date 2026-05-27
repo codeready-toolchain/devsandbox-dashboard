@@ -16,7 +16,11 @@
 
 import { ConfigApi } from '@backstage/core-plugin-api';
 import { errorMessage } from '../utils/common';
-import { newOpenClawObject, newOpenClawAPIKeySecretObject, newSpaceRequestObject } from '../utils/openclaw-utils';
+import {
+  newOpenClawObject,
+  newOpenClawAPIKeySecretObject,
+  newSpaceRequestObject,
+} from '../utils/openclaw-utils';
 import { OpenClawItem, SpaceRequestItem } from '../types';
 import { SecureFetchApi } from './SecureFetchClient';
 
@@ -126,13 +130,16 @@ export class OpenClawBackendClient implements OpenClawService {
     // create secret for api key
     const secretName = `gemini-api-key`;
     const secretUrl = `/api/v1/namespaces/${namespace}/secrets`;
-    const secretResponse = await this.secureFetchApi.fetch(`${kubeApi}${secretUrl}`, {
-      method: 'POST',
-      body: newOpenClawAPIKeySecretObject(namespace, secretName, apiKeyValue),
-      headers: {
-        'Content-Type': 'application/yaml',
+    const secretResponse = await this.secureFetchApi.fetch(
+      `${kubeApi}${secretUrl}`,
+      {
+        method: 'POST',
+        body: newOpenClawAPIKeySecretObject(namespace, secretName, apiKeyValue),
+        headers: {
+          'Content-Type': 'application/yaml',
+        },
       },
-    });
+    );
     if (!secretResponse.ok && secretResponse.status !== 409) {
       console.log('failed to create secret', secretResponse.json());
       const error = await secretResponse.json();
@@ -140,13 +147,16 @@ export class OpenClawBackendClient implements OpenClawService {
     }
     // create claw cr
     const clawUrl = `/apis/claw.sandbox.redhat.com/v1alpha1/namespaces/${namespace}/claws`;
-    const clawResponse = await this.secureFetchApi.fetch(`${kubeApi}${clawUrl}`, {
-      method: 'POST',
-      body: newOpenClawObject(namespace, clawName, secretName),
-      headers: {
-        'Content-Type': 'application/yaml',
+    const clawResponse = await this.secureFetchApi.fetch(
+      `${kubeApi}${clawUrl}`,
+      {
+        method: 'POST',
+        body: newOpenClawObject(namespace, clawName, secretName),
+        headers: {
+          'Content-Type': 'application/yaml',
+        },
       },
-    });
+    );
 
     if (!clawResponse.ok && clawResponse.status !== 409) {
       console.log('failed to create claw cr', clawResponse.json());
@@ -179,9 +189,12 @@ export class OpenClawBackendClient implements OpenClawService {
   deleteOpenClawCR = async (namespace: string): Promise<void> => {
     const kubeApi = await this.kubeAPI();
     const clawUrl = `/apis/claw.sandbox.redhat.com/v1alpha1/namespaces/${namespace}/claws/${clawName}`;
-    const clawResponse = await this.secureFetchApi.fetch(`${kubeApi}${clawUrl}`, {
-      method: 'DELETE',
-    });
+    const clawResponse = await this.secureFetchApi.fetch(
+      `${kubeApi}${clawUrl}`,
+      {
+        method: 'DELETE',
+      },
+    );
 
     if (!clawResponse.ok && clawResponse.status !== 404) {
       const error = await clawResponse.json();
@@ -189,9 +202,12 @@ export class OpenClawBackendClient implements OpenClawService {
     }
 
     const secretUrl = `/api/v1/namespaces/${namespace}/secrets/gemini-api-key`;
-    const secretResponse = await this.secureFetchApi.fetch(`${kubeApi}${secretUrl}`, {
-      method: 'DELETE',
-    });
+    const secretResponse = await this.secureFetchApi.fetch(
+      `${kubeApi}${secretUrl}`,
+      {
+        method: 'DELETE',
+      },
+    );
 
     if (!secretResponse.ok && secretResponse.status !== 404) {
       const error = await secretResponse.json();
