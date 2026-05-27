@@ -284,7 +284,10 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
         try {
           await createClawInNamespace(targetNamespace, apiKey);
           setOpenclawStatus(OpenClawStatus.PROVISIONING);
-          return { status: OpenClawStatus.PROVISIONING, namespace: targetNamespace };
+          return {
+            status: OpenClawStatus.PROVISIONING,
+            namespace: targetNamespace,
+          };
         } catch (e) {
           setOpenclawError(errorMessage(e));
           setOpenclawStatus(OpenClawStatus.UNKNOWN);
@@ -307,7 +310,10 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (st === OpenClawStatus.UNKNOWN && isSpaceRequestReady(sr)) {
         setOpenclawStatus(OpenClawStatus.PROVISIONING);
-        return { status: OpenClawStatus.PROVISIONING, namespace: targetNamespace };
+        return {
+          status: OpenClawStatus.PROVISIONING,
+          namespace: targetNamespace,
+        };
       }
 
       return { status: st, namespace: targetNamespace };
