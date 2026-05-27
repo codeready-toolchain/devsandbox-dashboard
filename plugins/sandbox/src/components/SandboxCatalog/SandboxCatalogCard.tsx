@@ -116,6 +116,7 @@ export const SandboxCatalogCard: React.FC<SandboxCatalogCardProps> = ({
     useSandboxContext();
   const {
     handleAAPInstance,
+    handleOpenClawInstance,
     signupUser,
     refetchUserData,
     refetchAAP,
@@ -208,6 +209,8 @@ export const SandboxCatalogCard: React.FC<SandboxCatalogCardProps> = ({
       }
       if (openclawStatus === OpenClawStatus.READY && openclawUILink) {
         window.open(openclawUILink, '_blank');
+      } else if (openclawStatus === OpenClawStatus.IDLED) {
+        handleOpenClawInstance(userData.defaultUserNamespace);
       } else {
         setOpenclawModalOpen(true);
       }

@@ -68,6 +68,9 @@ export const SandboxCatalogCardButton: React.FC<
       return 'Provision';
     }
     if (id === Product.OPENCLAW) {
+      if (openclawStatus === OpenClawStatus.IDLED) {
+        return 'Reprovision';
+      }
       if (openclawStatus === OpenClawStatus.NEW || openclawStatus === OpenClawStatus.PROVISIONING) {
         return 'Provisioning';
       }

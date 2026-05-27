@@ -24,6 +24,7 @@ export type OpenClawItem = {
   };
   spec: {
     apiKey: string;
+    idle?: boolean;
   };
   status: {
     conditions: StatusCondition[];

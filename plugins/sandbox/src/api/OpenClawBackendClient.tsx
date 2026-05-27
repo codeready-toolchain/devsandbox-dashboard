@@ -29,6 +29,7 @@ const clawName = 'claw';
 export interface OpenClawService {
   getOpenClaw(namespace: string): Promise<OpenClawItem | undefined>;
   createOpenClaw(namespace: string, apiKeyValue: string): Promise<void>;
+  unIdleOpenClaw(namespace: string): Promise<void>;
   deleteOpenClawCR(namespace: string): Promise<void>;
 }
 
@@ -98,6 +99,27 @@ export class OpenClawBackendClient implements OpenClawService {
     if (!clawResponse.ok && clawResponse.status !== 409) {
       console.log('failed to create claw cr', clawResponse.json());
       const error = await clawResponse.json();
+      throw new Error(errorMessage(error));
+    }
+  };
+
+  unIdleOpenClaw = async (namespace: string): Promise<void> => {
+    const kubeApi = await this.kubeAPI();
+    const clawUrl = `/apis/claw.sandbox.redhat.com/v1alpha1/namespaces/${namespace}/claws/${clawName}`;
+    const response = await this.secureFetchApi.fetch(`${kubeApi}${clawUrl}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        spec: {
+          idle: false,
+        },
+      }),
+      headers: {
+        'Content-Type': 'application/merge-patch+json',
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
       throw new Error(errorMessage(error));
     }
   };

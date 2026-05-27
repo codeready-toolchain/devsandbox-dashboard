@@ -21,6 +21,7 @@ export enum OpenClawStatus {
   UNKNOWN = 'unknown',
   READY = 'ready',
   FAILED = 'failed',
+  IDLED = 'idled',
 }
 
 const isConditionTrue = (
@@ -55,6 +56,11 @@ export const getOpenClawReadyCondition = (
   if (!data) {
     console.log('claw data is undefined');
     return OpenClawStatus.UNKNOWN;
+  }
+
+  if (data.spec?.idle) {
+    console.log('claw is idled');
+    return OpenClawStatus.IDLED;
   }
 
   if (

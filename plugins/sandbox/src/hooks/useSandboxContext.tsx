@@ -51,7 +51,7 @@ interface SandboxContextType {
   openclawError: string | null;
   openclawStatus: OpenClawStatus;
   openclawUILink: string | undefined;
-  handleOpenClawInstance: (userNamespace: string, apiKeyValue: string) => void;
+  handleOpenClawInstance: (userNamespace: string, apiKeyValue?: string) => void;
   refetchOpenClaw: (userNamespace: string) => void;
   segmentTrackClick?: (data: SegmentTrackingData) => Promise<void>;
   marketoWebhookURL?: string;
@@ -248,7 +248,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const handleOpenClawInstance = async (
     userNamespace: string,
-    apiKeyValue: string,
+    apiKeyValue?: string,
   ) => {
     const currentStatus = await getOpenClawData(userNamespace);
 
@@ -256,6 +256,21 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       currentStatus === OpenClawStatus.PROVISIONING ||
       currentStatus === OpenClawStatus.READY
     ) {
+      return;
+    }
+
+    if (currentStatus === OpenClawStatus.IDLED) {
+      try {
+        await openclawApi.unIdleOpenClaw(userNamespace);
+        setOpenclawStatus(OpenClawStatus.PROVISIONING);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error(e);
+      }
+      return;
+    }
+
+    if (!apiKeyValue) {
       return;
     }
 
