@@ -68,7 +68,11 @@ interface SandboxContextType {
   openclawError: string | null;
   openclawStatus: OpenClawStatus;
   openclawUILink: string | undefined;
-  handleOpenClawInstance: (userNamespace: string, apiKeyValue?: string) => void;
+  handleOpenClawInstance: (
+    userNamespace: string,
+    apiKeyValue?: string,
+    disableDevicePairing?: boolean,
+  ) => void;
   deleteOpenClaw: (userNamespace: string) => Promise<void>;
   refetchOpenClaw: (userNamespace: string) => Promise<OpenClawDataResult>;
   segmentTrackClick?: (data: SegmentTrackingData) => Promise<void>;
@@ -125,6 +129,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const [clawNamespace, setClawNamespace] = useState<string | undefined>();
   const pendingApiKey = useRef<string | undefined>(undefined);
+  const pendingDisableDevicePairing = useRef<boolean>(false);
   const [openclawData, setOpenclawData] = useState<OpenClawItem | undefined>();
   const [openclawStatus, setOpenclawStatus] = useState<OpenClawStatus>(
     OpenClawStatus.NEW,
@@ -268,9 +273,15 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (!data && pendingApiKey.current) {
         const apiKey = pendingApiKey.current;
+        const disableDevicePairing = pendingDisableDevicePairing.current;
         pendingApiKey.current = undefined;
+        pendingDisableDevicePairing.current = false;
         try {
-          await openclawApi.createOpenClaw(targetNamespace, apiKey);
+          await openclawApi.createOpenClaw(
+            targetNamespace,
+            apiKey,
+            disableDevicePairing,
+          );
           setOpenclawStatus(OpenClawStatus.PROVISIONING);
           return {
             status: OpenClawStatus.PROVISIONING,
@@ -287,10 +298,12 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       setOpenclawStatus(st);
       if (data?.status?.url) {
         const url = new URL(data.status.url);
-        url.pathname = `${url.pathname.replace(
-          /\/$/,
-          '',
-        )}/integration/device-pairing/`;
+        if (!data.spec?.auth?.disableDevicePairing) {
+          url.pathname = `${url.pathname.replace(
+            /\/$/,
+            '',
+          )}/integration/device-pairing/`;
+        }
         setOpenclawUILink(url.toString());
       }
 
@@ -312,6 +325,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   const handleOpenClawInstance = async (
     userNamespace: string,
     apiKeyValue?: string,
+    disableDevicePairing?: boolean,
   ) => {
     const { status: currentStatus, namespace: resolvedNamespace } =
       await getOpenClawData(userNamespace);
@@ -341,6 +355,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
 
     try {
       pendingApiKey.current = apiKeyValue;
+      pendingDisableDevicePairing.current = disableDevicePairing ?? false;
       await openclawApi.createSpaceRequest(userNamespace);
       setOpenclawStatus(OpenClawStatus.PROVISIONING);
     } catch (e) {

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -22,10 +22,12 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 import InputLabel from '@mui/material/InputLabel';
 import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
@@ -52,6 +54,13 @@ export const OpenClawLaunchInfoModal: React.FC<
   const [apiKey, setApiKey] = useState('');
   const [apiKeyError, setApiKeyError] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [devicePairingEnabled, setDevicePairingEnabled] = useState(true);
+
+  useEffect(() => {
+    if (modalOpen) {
+      setDevicePairingEnabled(true);
+    }
+  }, [modalOpen]);
 
   const handleClose = () => {
     setOpen(false);
@@ -64,7 +73,11 @@ export const OpenClawLaunchInfoModal: React.FC<
     }
     setApiKeyError(false);
     if (userData?.defaultUserNamespace) {
-      handleOpenClawInstance(userData.defaultUserNamespace, apiKey.trim());
+      handleOpenClawInstance(
+        userData.defaultUserNamespace,
+        apiKey.trim(),
+        !devicePairingEnabled,
+      );
     }
   };
 
@@ -347,6 +360,16 @@ export const OpenClawLaunchInfoModal: React.FC<
             }}
           />
         </Stack>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={devicePairingEnabled}
+              onChange={e => setDevicePairingEnabled(e.target.checked)}
+            />
+          }
+          label="Enable device pairing"
+          sx={{ mt: 2 }}
+        />
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'flex-start', pl: 3, pb: 3 }}>
         <Button

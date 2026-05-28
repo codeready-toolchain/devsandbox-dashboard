@@ -50,6 +50,9 @@ export type OpenClawItem = {
   spec: {
     credentials?: OpenClawCredential[];
     idle?: boolean;
+    auth?: {
+      disableDevicePairing?: boolean;
+    };
   };
   status?: {
     conditions?: StatusCondition[];

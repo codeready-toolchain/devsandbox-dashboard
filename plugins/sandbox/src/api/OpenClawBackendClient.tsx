@@ -35,7 +35,11 @@ export interface OpenClawService {
   createSpaceRequest(namespace: string): Promise<void>;
   deleteSpaceRequest(namespace: string): Promise<void>;
   getOpenClaw(namespace: string): Promise<OpenClawItem | undefined>;
-  createOpenClaw(namespace: string, apiKeyValue: string): Promise<void>;
+  createOpenClaw(
+    namespace: string,
+    apiKeyValue: string,
+    disableDevicePairing: boolean,
+  ): Promise<void>;
   unIdleOpenClaw(namespace: string): Promise<void>;
   deleteOpenClawCR(namespace: string): Promise<void>;
 }
@@ -124,6 +128,7 @@ export class OpenClawBackendClient implements OpenClawService {
   createOpenClaw = async (
     namespace: string,
     apiKeyValue: string,
+    disableDevicePairing: boolean,
   ): Promise<void> => {
     const kubeApi = this.kubeAPI;
     // create secret for api key
@@ -149,7 +154,12 @@ export class OpenClawBackendClient implements OpenClawService {
       `${kubeApi}${clawUrl}`,
       {
         method: 'POST',
-        body: newOpenClawObject(namespace, clawName, secretName),
+        body: newOpenClawObject(
+          namespace,
+          clawName,
+          secretName,
+          disableDevicePairing,
+        ),
         headers: {
           'Content-Type': 'application/json',
         },
