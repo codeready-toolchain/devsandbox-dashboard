@@ -54,7 +54,12 @@ export const SandboxCatalogCardButton: React.FC<
     handleTryButtonClick(id);
   };
 
-  const getProvisionableLabel = (productStatus: string, idled: string, provisioning: string, ready: string) => {
+  const getProvisionableLabel = (
+    productStatus: string,
+    idled: string,
+    provisioning: string,
+    ready: string,
+  ) => {
     if (productStatus === idled) return 'Reprovision';
     if (productStatus === provisioning) return 'Provisioning';
     if (productStatus === ready) return 'Launch';
@@ -63,10 +68,20 @@ export const SandboxCatalogCardButton: React.FC<
 
   const label = (() => {
     if (id === Product.AAP) {
-      return getProvisionableLabel(ansibleStatus, AnsibleStatus.IDLED, AnsibleStatus.PROVISIONING, AnsibleStatus.READY);
+      return getProvisionableLabel(
+        ansibleStatus,
+        AnsibleStatus.IDLED,
+        AnsibleStatus.PROVISIONING,
+        AnsibleStatus.READY,
+      );
     }
     if (id === Product.OPENCLAW) {
-      return getProvisionableLabel(openclawStatus, OpenClawStatus.IDLED, OpenClawStatus.PROVISIONING, OpenClawStatus.READY);
+      return getProvisionableLabel(
+        openclawStatus,
+        OpenClawStatus.IDLED,
+        OpenClawStatus.PROVISIONING,
+        OpenClawStatus.READY,
+      );
     }
     return 'Try it';
   })();
