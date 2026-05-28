@@ -78,7 +78,7 @@ export const newSpaceRequestObject = (namespace: string): string =>
       name: 'claw',
       labels: {
         'claw.sandbox.redhat.com/instance': 'claw',
-      }
+      },
     },
     spec: {
       tierName: 'claw',
