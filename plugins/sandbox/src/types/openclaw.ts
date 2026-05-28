@@ -29,18 +29,30 @@ export type SpaceRequestItem = {
   };
 };
 
+export type OpenClawCredentialRef = {
+  name: string;
+  key: string;
+};
+
+export type OpenClawCredential = {
+  name: string;
+  type: string;
+  secretRef: OpenClawCredentialRef[];
+  provider: string;
+};
+
 export type OpenClawItem = {
   metadata: {
     name: string;
-    uuid: string;
-    creationTimestamp: string;
+    uid?: string;
+    creationTimestamp?: string;
   };
   spec: {
-    apiKey: string;
+    credentials?: OpenClawCredential[];
     idle?: boolean;
   };
   status?: {
-    conditions: StatusCondition[];
+    conditions?: StatusCondition[];
     url?: string;
   };
 };

@@ -13,81 +13,48 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { OpenClawItem, SpaceRequestItem, StatusCondition } from '../types';
+import { OpenClawItem, SpaceRequestItem } from '../types';
+import { isConditionTrue, isConditionFalse } from './condition-utils';
 
 export enum OpenClawStatus {
-  NEW = 'new', // nothing exists yet
-  PROVISIONING = 'provisioning', // provisioning/booting
-  UNKNOWN = 'unknown', // unknown status, might be provisioning/booting and, it doesn't have a status condition yet
-  READY = 'ready', // ready to use
-  FAILED = 'failed', // failed to provision
-  IDLED = 'idled', // idled and not available to use
+  NEW = 'new',
+  PROVISIONING = 'provisioning',
+  UNKNOWN = 'unknown',
+  READY = 'ready',
+  FAILED = 'failed',
+  IDLED = 'idled',
 }
-
-const isConditionTrue = (
-  condType: string,
-  conditions: StatusCondition[],
-): [boolean, StatusCondition | null] => {
-  for (const condition of conditions) {
-    if (condition.type === condType && condition.status === 'True') {
-      return [true, condition];
-    }
-  }
-  return [false, null];
-};
-
-const isConditionFalse = (
-  condType: string,
-  conditions: StatusCondition[],
-): [boolean, StatusCondition | null] => {
-  for (const condition of conditions) {
-    if (condition.type === condType && condition.status === 'False') {
-      return [true, condition];
-    }
-  }
-  return [false, null];
-};
 
 export const getOpenClawReadyCondition = (
   data: OpenClawItem | undefined,
   setError: (errorDetails: string) => void,
 ): OpenClawStatus => {
-  console.log('claw data', data);
   if (!data) {
-    console.log('claw data is undefined');
     return OpenClawStatus.UNKNOWN;
   }
 
   if (data.spec?.idle) {
-    console.log('claw is idled');
     return OpenClawStatus.IDLED;
   }
 
-  if (!data.status || !data.status.conditions?.length) {
+  const conditions = data.status?.conditions;
+  if (!conditions?.length) {
     if (data.metadata?.creationTimestamp) {
-      console.log(
-        'claw exists but has no status conditions yet, treating as provisioning',
-      );
       return OpenClawStatus.PROVISIONING;
     }
-    console.log('claw is new, its status is undefined or empty');
     return OpenClawStatus.NEW;
   }
 
-  const conditions = data?.status?.conditions;
-
   const [isSuccessful] = isConditionTrue('Ready', conditions);
   if (isSuccessful) {
-    console.log('claw is ready');
     return OpenClawStatus.READY;
   }
 
   const [hasFailed, conditionFailure] = isConditionTrue('Failure', conditions);
   if (hasFailed) {
     if (conditionFailure) {
-      setError(conditionFailure?.message);
+      setError(conditionFailure.message);
     }
-    console.log('claw has failed');
     return OpenClawStatus.FAILED;
   }
 
@@ -96,11 +63,9 @@ export const getOpenClawReadyCondition = (
     conditions,
   );
   if (isProvisioning && conditionProvisioning?.reason === 'Provisioning') {
-    console.log('claw is provisioning');
     return OpenClawStatus.PROVISIONING;
   }
 
-  console.log('claw is unknown');
   return OpenClawStatus.UNKNOWN;
 };
 

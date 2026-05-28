@@ -49,15 +49,14 @@ export class OpenClawBackendClient implements OpenClawService {
     this.secureFetchApi = options.secureFetchApi;
   }
 
-  private readonly kubeAPI = async (): Promise<string> => {
-    const kubeAPI = this.configApi.getString('sandbox.kubeAPI');
-    return kubeAPI;
-  };
+  private get kubeAPI(): string {
+    return this.configApi.getString('sandbox.kubeAPI');
+  }
 
   getSpaceRequest = async (
     namespace: string,
   ): Promise<SpaceRequestItem | undefined> => {
-    const kubeApi = await this.kubeAPI();
+    const kubeApi = this.kubeAPI;
     const url = `/apis/toolchain.dev.openshift.com/v1alpha1/namespaces/${namespace}/spacerequests/claw`;
     const response = await this.secureFetchApi.fetch(`${kubeApi}${url}`, {
       method: 'GET',
@@ -74,7 +73,7 @@ export class OpenClawBackendClient implements OpenClawService {
   };
 
   createSpaceRequest = async (namespace: string): Promise<void> => {
-    const kubeApi = await this.kubeAPI();
+    const kubeApi = this.kubeAPI;
     const url = `/apis/toolchain.dev.openshift.com/v1alpha1/namespaces/${namespace}/spacerequests`;
     const response = await this.secureFetchApi.fetch(`${kubeApi}${url}`, {
       method: 'POST',
@@ -91,7 +90,7 @@ export class OpenClawBackendClient implements OpenClawService {
   };
 
   deleteSpaceRequest = async (namespace: string): Promise<void> => {
-    const kubeApi = await this.kubeAPI();
+    const kubeApi = this.kubeAPI;
     const url = `/apis/toolchain.dev.openshift.com/v1alpha1/namespaces/${namespace}/spacerequests/claw`;
     const response = await this.secureFetchApi.fetch(`${kubeApi}${url}`, {
       method: 'DELETE',
@@ -106,7 +105,7 @@ export class OpenClawBackendClient implements OpenClawService {
   getOpenClaw = async (
     namespace: string,
   ): Promise<OpenClawItem | undefined> => {
-    const kubeApi = await this.kubeAPI();
+    const kubeApi = this.kubeAPI;
     const url = `/apis/claw.sandbox.redhat.com/v1alpha1/namespaces/${namespace}/claws/${clawName}`;
     const response = await this.secureFetchApi.fetch(`${kubeApi}${url}`, {
       method: 'GET',
@@ -126,7 +125,7 @@ export class OpenClawBackendClient implements OpenClawService {
     namespace: string,
     apiKeyValue: string,
   ): Promise<void> => {
-    const kubeApi = await this.kubeAPI();
+    const kubeApi = this.kubeAPI;
     // create secret for api key
     const secretName = `gemini-api-key`;
     const secretUrl = `/api/v1/namespaces/${namespace}/secrets`;
@@ -136,12 +135,11 @@ export class OpenClawBackendClient implements OpenClawService {
         method: 'POST',
         body: newOpenClawAPIKeySecretObject(namespace, secretName, apiKeyValue),
         headers: {
-          'Content-Type': 'application/yaml',
+          'Content-Type': 'application/json',
         },
       },
     );
     if (!secretResponse.ok && secretResponse.status !== 409) {
-      console.log('failed to create secret', secretResponse.json());
       const error = await secretResponse.json();
       throw new Error(errorMessage(error));
     }
@@ -153,20 +151,19 @@ export class OpenClawBackendClient implements OpenClawService {
         method: 'POST',
         body: newOpenClawObject(namespace, clawName, secretName),
         headers: {
-          'Content-Type': 'application/yaml',
+          'Content-Type': 'application/json',
         },
       },
     );
 
     if (!clawResponse.ok && clawResponse.status !== 409) {
-      console.log('failed to create claw cr', clawResponse.json());
       const error = await clawResponse.json();
       throw new Error(errorMessage(error));
     }
   };
 
   unIdleOpenClaw = async (namespace: string): Promise<void> => {
-    const kubeApi = await this.kubeAPI();
+    const kubeApi = this.kubeAPI;
     const clawUrl = `/apis/claw.sandbox.redhat.com/v1alpha1/namespaces/${namespace}/claws/${clawName}`;
     const response = await this.secureFetchApi.fetch(`${kubeApi}${clawUrl}`, {
       method: 'PATCH',
@@ -187,7 +184,7 @@ export class OpenClawBackendClient implements OpenClawService {
   };
 
   deleteOpenClawCR = async (namespace: string): Promise<void> => {
-    const kubeApi = await this.kubeAPI();
+    const kubeApi = this.kubeAPI;
     const clawUrl = `/apis/claw.sandbox.redhat.com/v1alpha1/namespaces/${namespace}/claws/${clawName}`;
     const clawResponse = await this.secureFetchApi.fetch(
       `${kubeApi}${clawUrl}`,

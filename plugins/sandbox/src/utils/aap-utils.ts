@@ -13,7 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { AAPData, StatusCondition } from '../types';
+import { AAPData } from '../types';
+import { isConditionTrue } from './condition-utils';
 
 export const decode = (str: string): string =>
   Buffer.from(str, 'base64').toString('binary');
@@ -42,19 +43,6 @@ export enum AnsibleStatus {
   IDLED = 'idled',
   NOT_DEPLOYED = 'NOT_DEPLOYED',
 }
-
-/** isConditionTrue checks if a given condition type exists and it's status is set to True */
-const isConditionTrue = (
-  condType: string,
-  conditions: StatusCondition[],
-): [boolean, StatusCondition | null] => {
-  for (const condition of conditions) {
-    if (condition.type === condType && condition.status === 'True') {
-      return [true, condition];
-    }
-  }
-  return [false, null];
-};
 
 export const getReadyCondition = (
   data: AAPData | undefined,

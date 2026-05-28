@@ -54,9 +54,9 @@ export const SandboxCatalogCardDeleteButton: React.FC<
 
   if (!shouldShow) return null;
 
-  const isReady =
-    (id === Product.AAP && ansibleStatus === AnsibleStatus.READY) ||
-    (id === Product.OPENCLAW && openclawStatus === OpenClawStatus.READY);
+  const isProvisioning =
+    (id === Product.AAP && ansibleStatus === AnsibleStatus.PROVISIONING) ||
+    (id === Product.OPENCLAW && openclawStatus === OpenClawStatus.PROVISIONING);
 
   return (
     <Button
@@ -77,7 +77,7 @@ export const SandboxCatalogCardDeleteButton: React.FC<
         marginTop: theme.spacing(0.5),
       }}
     >
-      {isReady ? 'Delete' : 'Stop'}
+      {isProvisioning ? 'Stop' : 'Delete'}
     </Button>
   );
 };

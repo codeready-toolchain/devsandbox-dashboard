@@ -14,8 +14,15 @@
  * limitations under the License.
  */
 import { isEqual } from 'lodash';
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { AAPData, OpenClawItem, SpaceRequestItem, SignupData } from '../types';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { AAPData, OpenClawItem, SignupData } from '../types';
 import { useApi, configApiRef } from '@backstage/core-plugin-api';
 import { aapApiRef, kubeApiRef, openclawApiRef, registerApiRef } from '../api';
 import { useRecaptcha } from './useRecaptcha';
@@ -96,7 +103,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   const [disabledIntegrations, setDisabledIntegrations] = useState<
     string[] | undefined
   >();
-  const [statusUnknown, setStatusUnknown] = React.useState(true);
+  const [statusUnknown, setStatusUnknown] = useState(true);
   const [userFound, setUserFound] = useState<boolean>(false);
   const [userData, setData] = useState<SignupData | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(true);
@@ -107,36 +114,25 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const segmentAnalytics = useSegmentAnalytics(segmentWriteKey, userData);
 
-  const [ansibleData, setAnsibleData] = React.useState<AAPData | undefined>();
-  const [ansibleUILink, setAnsibleUILink] = React.useState<
-    string | undefined
-  >();
-  const [ansibleUIUser, setAnsibleUIUser] = React.useState<string>();
-  const [ansibleUIPassword, setAnsibleUIPassword] = React.useState<string>('');
-  const [ansibleStatus, setAnsibleStatus] = React.useState<AnsibleStatus>(
+  const [ansibleData, setAnsibleData] = useState<AAPData | undefined>();
+  const [ansibleUILink, setAnsibleUILink] = useState<string | undefined>();
+  const [ansibleUIUser, setAnsibleUIUser] = useState<string>();
+  const [ansibleUIPassword, setAnsibleUIPassword] = useState<string>('');
+  const [ansibleStatus, setAnsibleStatus] = useState<AnsibleStatus>(
     AnsibleStatus.NEW,
   );
   const [ansibleError, setAnsibleError] = useState<string | null>(null);
 
-  const [, setSpaceRequestData] = React.useState<
-    SpaceRequestItem | undefined
-  >();
-  const [clawNamespace, setClawNamespace] = React.useState<
-    string | undefined
-  >();
-  const pendingApiKey = React.useRef<string | undefined>(undefined);
-  const [openclawData, setOpenclawData] = React.useState<
-    OpenClawItem | undefined
-  >();
-  const [openclawStatus, setOpenclawStatus] = React.useState<OpenClawStatus>(
+  const [clawNamespace, setClawNamespace] = useState<string | undefined>();
+  const pendingApiKey = useRef<string | undefined>(undefined);
+  const [openclawData, setOpenclawData] = useState<OpenClawItem | undefined>();
+  const [openclawStatus, setOpenclawStatus] = useState<OpenClawStatus>(
     OpenClawStatus.NEW,
   );
-  const [openclawUILink, setOpenclawUILink] = React.useState<
-    string | undefined
-  >();
+  const [openclawUILink, setOpenclawUILink] = useState<string | undefined>();
   const [openclawError, setOpenclawError] = useState<string | null>(null);
 
-  const status = React.useMemo(
+  const status = useMemo(
     () => (statusUnknown ? 'unknown' : signupDataToStatus(userData)),
     [statusUnknown, userData],
   );
@@ -248,19 +244,11 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const createClawInNamespace = async (
-    targetNamespace: string,
-    apiKeyValue: string,
-  ) => {
-    await openclawApi.createOpenClaw(targetNamespace, apiKeyValue);
-  };
-
   const getOpenClawData = async (
     userNamespace: string,
   ): Promise<OpenClawDataResult> => {
     try {
       const sr = await openclawApi.getSpaceRequest(userNamespace);
-      setSpaceRequestData(sr);
 
       if (!sr) {
         setOpenclawStatus(OpenClawStatus.NEW);
@@ -282,7 +270,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
         const apiKey = pendingApiKey.current;
         pendingApiKey.current = undefined;
         try {
-          await createClawInNamespace(targetNamespace, apiKey);
+          await openclawApi.createOpenClaw(targetNamespace, apiKey);
           setOpenclawStatus(OpenClawStatus.PROVISIONING);
           return {
             status: OpenClawStatus.PROVISIONING,
@@ -295,9 +283,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
 
-      const st = getOpenClawReadyCondition(data, e =>
-        setOpenclawError(errorMessage(e)),
-      );
+      const st = getOpenClawReadyCondition(data, setOpenclawError);
       setOpenclawStatus(st);
       if (data?.status?.url) {
         const url = new URL(data.status.url);
@@ -359,6 +345,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       setOpenclawStatus(OpenClawStatus.PROVISIONING);
     } catch (e) {
       pendingApiKey.current = undefined;
+      setOpenclawError(errorMessage(e));
       // eslint-disable-next-line no-console
       console.error(e);
     }
@@ -380,7 +367,6 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     setClawNamespace(undefined);
-    setSpaceRequestData(undefined);
     setOpenclawData(undefined);
     setOpenclawStatus(OpenClawStatus.NEW);
     setOpenclawUILink(undefined);
@@ -435,7 +421,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   const pollInterval =
     status === 'provisioning' ? SHORT_INTERVAL : LONG_INTERVAL;
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (pollStatus) {
       const handle = setInterval(() => {
         fetchData(true);
@@ -446,7 +432,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pollStatus, pollInterval]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (userData?.defaultUserNamespace) {
       const handle = setInterval(
         getAAPData,
@@ -461,14 +447,14 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData, ansibleStatus]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (userData?.defaultUserNamespace) {
       getOpenClawData(userData.defaultUserNamespace);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData?.defaultUserNamespace]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (
       userData?.defaultUserNamespace &&
       openclawStatus === OpenClawStatus.PROVISIONING
