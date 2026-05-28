@@ -128,7 +128,7 @@ describe('SandboxCatalogCardButton', () => {
     } as any);
 
     renderButton();
-    const button = screen.getByRole('link');
+    const button = screen.getByRole('button');
     fireEvent.click(button);
 
     expect(screen.getByRole('progressbar')).toBeInTheDocument();

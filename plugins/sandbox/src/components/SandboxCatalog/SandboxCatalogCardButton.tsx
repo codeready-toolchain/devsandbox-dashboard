@@ -126,7 +126,7 @@ export const SandboxCatalogCardButton: React.FC<
   // dpal.js can read href/isExitLink/targetHost. target="_blank" lets the
   // browser open the tab natively without depending on dpal.js re-navigation.
   const linkProps =
-    isReadyUser && isExternalProduct
+    isReadyUser && userReady && isExternalProduct
       ? { href: link, target: '_blank', rel: 'noopener noreferrer' }
       : {};
 
