@@ -108,6 +108,7 @@ export const newOpenClawObject = (
   namespace: string,
   name: string,
   secretName: string,
+  disableDevicePairing: boolean,
 ): string =>
   JSON.stringify({
     apiVersion: 'claw.sandbox.redhat.com/v1alpha1',
@@ -134,6 +135,9 @@ export const newOpenClawObject = (
           provider: 'google',
         },
       ],
+      auth: {
+        disableDevicePairing: disableDevicePairing,
+      },
     },
   });
 
