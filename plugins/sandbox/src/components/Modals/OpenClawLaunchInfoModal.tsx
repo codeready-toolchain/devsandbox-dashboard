@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -55,6 +55,12 @@ export const OpenClawLaunchInfoModal: React.FC<
   const [apiKeyError, setApiKeyError] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [devicePairingEnabled, setDevicePairingEnabled] = useState(true);
+
+  useEffect(() => {
+    if (modalOpen) {
+      setDevicePairingEnabled(true);
+    }
+  }, [modalOpen]);
 
   const handleClose = () => {
     setOpen(false);
