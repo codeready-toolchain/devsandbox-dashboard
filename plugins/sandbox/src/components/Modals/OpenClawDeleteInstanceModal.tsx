@@ -16,21 +16,21 @@
 import React from 'react';
 import { DeleteInstanceModal } from './DeleteInstanceModal';
 
-type AnsibleDeleteInstanceModalProps = {
+type OpenClawDeleteInstanceModalProps = {
   modalOpen: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  handleAnsibleDeleteInstance: () => void;
+  handleOpenClawDeleteInstance: () => void;
 };
 
-export const AnsibleDeleteInstanceModal: React.FC<
-  AnsibleDeleteInstanceModalProps
-> = ({ modalOpen, setOpen, handleAnsibleDeleteInstance }) => (
+export const OpenClawDeleteInstanceModal: React.FC<
+  OpenClawDeleteInstanceModalProps
+> = ({ modalOpen, setOpen, handleOpenClawDeleteInstance }) => (
   <DeleteInstanceModal
-    productName="AAP"
+    productName="OpenClaw"
     modalOpen={modalOpen}
     setOpen={setOpen}
-    handleDeleteInstance={handleAnsibleDeleteInstance}
+    handleDeleteInstance={handleOpenClawDeleteInstance}
   />
 );
 
-export default AnsibleDeleteInstanceModal;
+export default OpenClawDeleteInstanceModal;

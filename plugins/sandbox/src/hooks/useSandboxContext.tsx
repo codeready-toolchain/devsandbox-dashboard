@@ -14,14 +14,32 @@
  * limitations under the License.
  */
 import { isEqual } from 'lodash';
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { AAPData, SignupData } from '../types';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { AAPData, OpenClawItem, SignupData } from '../types';
 import { useApi, configApiRef } from '@backstage/core-plugin-api';
-import { aapApiRef, kubeApiRef, registerApiRef } from '../api';
+import { aapApiRef, kubeApiRef, openclawApiRef, registerApiRef } from '../api';
 import { useRecaptcha } from './useRecaptcha';
 import { LONG_INTERVAL, SandboxEnvironment, SHORT_INTERVAL } from '../const';
 import { signupDataToStatus } from '../utils/register-utils';
 import { AnsibleStatus, decode, getReadyCondition } from '../utils/aap-utils';
+import {
+  OpenClawStatus,
+  getOpenClawReadyCondition,
+  isSpaceRequestReady,
+  getSpaceRequestNamespace,
+} from '../utils/openclaw-utils';
+
+interface OpenClawDataResult {
+  status: OpenClawStatus;
+  namespace: string | undefined;
+}
 import { errorMessage } from '../utils/common';
 import {
   useSegmentAnalytics,
@@ -46,6 +64,13 @@ interface SandboxContextType {
   ansibleUILink: string | undefined;
   ansibleError: string | null;
   ansibleStatus: AnsibleStatus;
+  openclawData: OpenClawItem | undefined;
+  openclawError: string | null;
+  openclawStatus: OpenClawStatus;
+  openclawUILink: string | undefined;
+  handleOpenClawInstance: (userNamespace: string, apiKeyValue?: string) => void;
+  deleteOpenClaw: (userNamespace: string) => Promise<void>;
+  refetchOpenClaw: (userNamespace: string) => Promise<OpenClawDataResult>;
   segmentTrackClick?: (data: SegmentTrackingData) => Promise<void>;
   marketoWebhookURL?: string;
   disabledIntegrations?: string[];
@@ -70,6 +95,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       SandboxEnvironment.PROD) !== SandboxEnvironment.DEV;
   useRecaptcha(isProd);
   const aapApi = useApi(aapApiRef);
+  const openclawApi = useApi(openclawApiRef);
   const kubeApi = useApi(kubeApiRef);
   const registerApi = useApi(registerApiRef);
   const [segmentWriteKey, setSegmentWriteKey] = useState<string>();
@@ -77,7 +103,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   const [disabledIntegrations, setDisabledIntegrations] = useState<
     string[] | undefined
   >();
-  const [statusUnknown, setStatusUnknown] = React.useState(true);
+  const [statusUnknown, setStatusUnknown] = useState(true);
   const [userFound, setUserFound] = useState<boolean>(false);
   const [userData, setData] = useState<SignupData | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(true);
@@ -88,18 +114,25 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const segmentAnalytics = useSegmentAnalytics(segmentWriteKey, userData);
 
-  const [ansibleData, setAnsibleData] = React.useState<AAPData | undefined>();
-  const [ansibleUILink, setAnsibleUILink] = React.useState<
-    string | undefined
-  >();
-  const [ansibleUIUser, setAnsibleUIUser] = React.useState<string>();
-  const [ansibleUIPassword, setAnsibleUIPassword] = React.useState<string>('');
-  const [ansibleStatus, setAnsibleStatus] = React.useState<AnsibleStatus>(
+  const [ansibleData, setAnsibleData] = useState<AAPData | undefined>();
+  const [ansibleUILink, setAnsibleUILink] = useState<string | undefined>();
+  const [ansibleUIUser, setAnsibleUIUser] = useState<string>();
+  const [ansibleUIPassword, setAnsibleUIPassword] = useState<string>('');
+  const [ansibleStatus, setAnsibleStatus] = useState<AnsibleStatus>(
     AnsibleStatus.NEW,
   );
   const [ansibleError, setAnsibleError] = useState<string | null>(null);
 
-  const status = React.useMemo(
+  const [clawNamespace, setClawNamespace] = useState<string | undefined>();
+  const pendingApiKey = useRef<string | undefined>(undefined);
+  const [openclawData, setOpenclawData] = useState<OpenClawItem | undefined>();
+  const [openclawStatus, setOpenclawStatus] = useState<OpenClawStatus>(
+    OpenClawStatus.NEW,
+  );
+  const [openclawUILink, setOpenclawUILink] = useState<string | undefined>();
+  const [openclawError, setOpenclawError] = useState<string | null>(null);
+
+  const status = useMemo(
     () => (statusUnknown ? 'unknown' : signupDataToStatus(userData)),
     [statusUnknown, userData],
   );
@@ -211,6 +244,135 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const getOpenClawData = async (
+    userNamespace: string,
+  ): Promise<OpenClawDataResult> => {
+    try {
+      const sr = await openclawApi.getSpaceRequest(userNamespace);
+
+      if (!sr) {
+        setOpenclawStatus(OpenClawStatus.NEW);
+        return { status: OpenClawStatus.NEW, namespace: undefined };
+      }
+
+      const targetNamespace = getSpaceRequestNamespace(sr);
+      if (!targetNamespace) {
+        setOpenclawStatus(OpenClawStatus.PROVISIONING);
+        return { status: OpenClawStatus.PROVISIONING, namespace: undefined };
+      }
+
+      setClawNamespace(targetNamespace);
+
+      const data = await openclawApi.getOpenClaw(targetNamespace);
+      setOpenclawData(data);
+
+      if (!data && pendingApiKey.current) {
+        const apiKey = pendingApiKey.current;
+        pendingApiKey.current = undefined;
+        try {
+          await openclawApi.createOpenClaw(targetNamespace, apiKey);
+          setOpenclawStatus(OpenClawStatus.PROVISIONING);
+          return {
+            status: OpenClawStatus.PROVISIONING,
+            namespace: targetNamespace,
+          };
+        } catch (e) {
+          setOpenclawError(errorMessage(e));
+          setOpenclawStatus(OpenClawStatus.UNKNOWN);
+          return { status: OpenClawStatus.UNKNOWN, namespace: targetNamespace };
+        }
+      }
+
+      const st = getOpenClawReadyCondition(data, setOpenclawError);
+      setOpenclawStatus(st);
+      if (data?.status?.url) {
+        const url = new URL(data.status.url);
+        url.pathname = `${url.pathname.replace(
+          /\/$/,
+          '',
+        )}/integration/device-pairing/`;
+        setOpenclawUILink(url.toString());
+      }
+
+      if (st === OpenClawStatus.UNKNOWN && isSpaceRequestReady(sr)) {
+        setOpenclawStatus(OpenClawStatus.PROVISIONING);
+        return {
+          status: OpenClawStatus.PROVISIONING,
+          namespace: targetNamespace,
+        };
+      }
+
+      return { status: st, namespace: targetNamespace };
+    } catch (e) {
+      setOpenclawError(errorMessage(e));
+      return { status: OpenClawStatus.UNKNOWN, namespace: undefined };
+    }
+  };
+
+  const handleOpenClawInstance = async (
+    userNamespace: string,
+    apiKeyValue?: string,
+  ) => {
+    const { status: currentStatus, namespace: resolvedNamespace } =
+      await getOpenClawData(userNamespace);
+
+    if (
+      currentStatus === OpenClawStatus.PROVISIONING ||
+      currentStatus === OpenClawStatus.READY
+    ) {
+      return;
+    }
+
+    if (currentStatus === OpenClawStatus.IDLED && resolvedNamespace) {
+      try {
+        await openclawApi.unIdleOpenClaw(resolvedNamespace);
+        setOpenclawStatus(OpenClawStatus.PROVISIONING);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error(e);
+        setOpenclawError(errorMessage(e));
+      }
+      return;
+    }
+
+    if (!apiKeyValue) {
+      return;
+    }
+
+    try {
+      pendingApiKey.current = apiKeyValue;
+      await openclawApi.createSpaceRequest(userNamespace);
+      setOpenclawStatus(OpenClawStatus.PROVISIONING);
+    } catch (e) {
+      pendingApiKey.current = undefined;
+      setOpenclawError(errorMessage(e));
+      // eslint-disable-next-line no-console
+      console.error(e);
+    }
+  };
+
+  const deleteOpenClaw = async (userNamespace: string) => {
+    const results = await Promise.allSettled([
+      clawNamespace
+        ? openclawApi.deleteOpenClawCR(clawNamespace)
+        : Promise.resolve(),
+      openclawApi.deleteSpaceRequest(userNamespace),
+    ]);
+
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        // eslint-disable-next-line no-console
+        console.error(result.reason);
+      }
+    }
+
+    setClawNamespace(undefined);
+    setOpenclawData(undefined);
+    setOpenclawStatus(OpenClawStatus.NEW);
+    setOpenclawUILink(undefined);
+    setOpenclawError(null);
+  };
+
   useEffect(() => {
     fetchData(); // Initial fetch
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -259,7 +421,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   const pollInterval =
     status === 'provisioning' ? SHORT_INTERVAL : LONG_INTERVAL;
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (pollStatus) {
       const handle = setInterval(() => {
         fetchData(true);
@@ -270,7 +432,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pollStatus, pollInterval]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (userData?.defaultUserNamespace) {
       const handle = setInterval(
         getAAPData,
@@ -284,6 +446,31 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData, ansibleStatus]);
+
+  useEffect(() => {
+    if (userData?.defaultUserNamespace) {
+      getOpenClawData(userData.defaultUserNamespace);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData?.defaultUserNamespace]);
+
+  useEffect(() => {
+    if (
+      userData?.defaultUserNamespace &&
+      openclawStatus === OpenClawStatus.PROVISIONING
+    ) {
+      const handle = setInterval(
+        getOpenClawData,
+        SHORT_INTERVAL,
+        userData.defaultUserNamespace,
+      );
+      return () => {
+        clearInterval(handle);
+      };
+    }
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData?.defaultUserNamespace, openclawStatus]);
 
   return (
     <SandboxContext.Provider
@@ -305,6 +492,13 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
         ansibleUILink,
         ansibleError,
         ansibleStatus,
+        openclawData,
+        openclawError,
+        openclawStatus,
+        openclawUILink,
+        handleOpenClawInstance,
+        deleteOpenClaw,
+        refetchOpenClaw: getOpenClawData,
         segmentTrackClick: segmentAnalytics.trackClick,
         marketoWebhookURL,
         disabledIntegrations,

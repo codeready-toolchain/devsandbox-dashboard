@@ -59,14 +59,25 @@ describe('SandboxCatalogCardDeleteButton', () => {
 
   it('renders only for AAP card', () => {
     renderButton({ id: Product.OPENSHIFT_CONSOLE });
-    const deleteButton = document.querySelector('[data-testid="delete-aap"]');
+    const deleteButton = document.querySelector(
+      `[data-testid="delete-${Product.OPENSHIFT_CONSOLE}"]`,
+    );
     expect(deleteButton).toBeNull();
   });
 
   it('shows Stop when AAP is provisioning', () => {
+    mockUseSandboxContext.mockReturnValue({
+      ansibleStatus: AnsibleStatus.PROVISIONING,
+    } as any);
     renderButton();
-    const tryItButton = screen.getByRole('button', { name: /Stop/i });
-    expect(tryItButton).toBeInTheDocument();
+    const stopButton = screen.getByRole('button', { name: /Stop/i });
+    expect(stopButton).toBeInTheDocument();
+  });
+
+  it('shows Delete when AAP status is unknown', () => {
+    renderButton();
+    const deleteButton = screen.getByRole('button', { name: /Delete/i });
+    expect(deleteButton).toBeInTheDocument();
   });
 
   it('shows Delete when AAP is ready', () => {
@@ -74,15 +85,15 @@ describe('SandboxCatalogCardDeleteButton', () => {
       ansibleStatus: AnsibleStatus.READY,
     } as any);
     renderButton();
-    const tryItButton = screen.getByRole('button', { name: /Delete/i });
-    expect(tryItButton).toBeInTheDocument();
+    const deleteButton = screen.getByRole('button', { name: /Delete/i });
+    expect(deleteButton).toBeInTheDocument();
   });
 
   it('calls HandleDeleteButtonClick when clicked', () => {
     renderButton();
-    const tryItButton = screen.getByRole('button', { name: /Stop/i });
-    expect(tryItButton).toBeInTheDocument();
-    fireEvent.click(tryItButton);
+    const deleteButton = screen.getByRole('button', { name: /Delete/i });
+    expect(deleteButton).toBeInTheDocument();
+    fireEvent.click(deleteButton);
     expect(mockHandleDeleteButtonClick).toHaveBeenCalled();
   });
 });

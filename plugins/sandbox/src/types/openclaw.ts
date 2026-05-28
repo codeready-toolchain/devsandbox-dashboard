@@ -16,23 +16,43 @@
 
 import { StatusCondition } from './common';
 
-export type AAPItem = {
-  status: {
-    conditions: StatusCondition[];
-    URL: string;
-    adminPasswordSecret: string;
-    adminUser: string;
-  };
-  spec: {
-    idle_aap: boolean;
-  };
+export type SpaceRequestItem = {
   metadata: {
     name: string;
-    uuid: string;
-    creationTimestamp: string;
+  };
+  spec: {
+    tierName: string;
+  };
+  status?: {
+    conditions?: StatusCondition[];
+    namespaceAccess?: { name: string; secretRef: string }[];
   };
 };
 
-export type AAPData = {
-  items: AAPItem[];
+export type OpenClawCredentialRef = {
+  name: string;
+  key: string;
+};
+
+export type OpenClawCredential = {
+  name: string;
+  type: string;
+  secretRef: OpenClawCredentialRef[];
+  provider: string;
+};
+
+export type OpenClawItem = {
+  metadata: {
+    name: string;
+    uid?: string;
+    creationTimestamp?: string;
+  };
+  spec: {
+    credentials?: OpenClawCredential[];
+    idle?: boolean;
+  };
+  status?: {
+    conditions?: StatusCondition[];
+    url?: string;
+  };
 };

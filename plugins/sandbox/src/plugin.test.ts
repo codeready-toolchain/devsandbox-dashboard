@@ -24,6 +24,7 @@ import {
   registerApiRef,
   kubeApiRef,
   aapApiRef,
+  openclawApiRef,
   keycloakApiRef,
   secureFetchApiRef,
 } from './api';
@@ -52,12 +53,13 @@ describe('sandbox plugin', () => {
   it('should register all required APIs', () => {
     const apis = [...sandboxPlugin.getApis()];
 
-    expect(apis).toHaveLength(5);
+    expect(apis).toHaveLength(6);
 
     const apiRefs = apis.map((api: any) => api.api);
     expect(apiRefs).toContain(registerApiRef);
     expect(apiRefs).toContain(kubeApiRef);
     expect(apiRefs).toContain(aapApiRef);
+    expect(apiRefs).toContain(openclawApiRef);
     expect(apiRefs).toContain(keycloakApiRef);
     expect(apiRefs).toContain(secureFetchApiRef);
   });
@@ -118,6 +120,17 @@ describe('sandbox plugin', () => {
       expect(aapApiFactory).toBeDefined();
       expect(aapApiFactory?.deps.configApi).toBe(configApiRef);
       expect(aapApiFactory?.deps.secureFetchApi).toBe(secureFetchApiRef);
+    });
+
+    it('should create OpenClaw API factory with correct dependencies', () => {
+      const apis = [...sandboxPlugin.getApis()];
+      const openclawApiFactory = apis.find(
+        (api: any) => api.api === openclawApiRef,
+      );
+
+      expect(openclawApiFactory).toBeDefined();
+      expect(openclawApiFactory?.deps.configApi).toBe(configApiRef);
+      expect(openclawApiFactory?.deps.secureFetchApi).toBe(secureFetchApiRef);
     });
 
     it('should create keycloak API factory with correct dependencies', () => {

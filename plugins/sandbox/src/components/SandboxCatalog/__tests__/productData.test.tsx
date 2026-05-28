@@ -27,6 +27,7 @@ describe('productData', () => {
       expect(Product.DEVSPACES).toBe('devspaces');
       expect(Product.AAP).toBe('ansible-automation-platform');
       expect(Product.OPENSHIFT_VIRT).toBe('openshift-virtualization');
+      expect(Product.OPENCLAW).toBe('openclaw');
     });
   });
 
@@ -39,6 +40,7 @@ describe('productData', () => {
         Product.DEVSPACES,
         Product.AAP,
         Product.OPENSHIFT_VIRT,
+        Product.OPENCLAW,
       ]);
     });
 

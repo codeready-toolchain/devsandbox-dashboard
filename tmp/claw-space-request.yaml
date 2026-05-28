@@ -1,0 +1,6 @@
+apiVersion: toolchain.dev.openshift.com/v1alpha1
+kind: SpaceRequest
+metadata:
+  name: claw
+spec:
+  tierName: claw
