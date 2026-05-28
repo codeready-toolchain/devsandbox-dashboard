@@ -64,7 +64,10 @@ export const SandboxCatalogCardDeleteButton: React.FC<
       color="primary"
       variant="contained"
       data-testid={`delete-${id}`}
-      onClick={() => handleDeleteButtonClick(id)}
+      disabled={isDeleting}
+      onClick={() => {
+        if (!isDeleting) handleDeleteButtonClick(id);
+      }}
       endIcon={
         isDeleting && (
           <CircularProgress
