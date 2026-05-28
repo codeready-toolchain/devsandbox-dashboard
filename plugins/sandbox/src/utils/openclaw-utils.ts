@@ -76,6 +76,9 @@ export const newSpaceRequestObject = (namespace: string): string =>
     metadata: {
       namespace: namespace,
       name: 'claw',
+      labels: {
+        'claw.sandbox.redhat.com/instance': 'claw',
+      }
     },
     spec: {
       tierName: 'claw',
@@ -114,6 +117,7 @@ export const newOpenClawObject = (
       name: name,
       labels: {
         'app.kubernetes.io/name': 'claw',
+        'claw.sandbox.redhat.com/instance': name,
       },
     },
     spec: {
@@ -146,6 +150,7 @@ export const newOpenClawAPIKeySecretObject = (
       name: name,
       labels: {
         'app.kubernetes.io/name': 'claw',
+        'claw.sandbox.redhat.com/instance': name,
       },
     },
     stringData: {
