@@ -35,7 +35,11 @@ export interface OpenClawService {
   createSpaceRequest(namespace: string): Promise<void>;
   deleteSpaceRequest(namespace: string): Promise<void>;
   getOpenClaw(namespace: string): Promise<OpenClawItem | undefined>;
-  createOpenClaw(namespace: string, apiKeyValue: string, disableDevicePairing: boolean): Promise<void>;
+  createOpenClaw(
+    namespace: string,
+    apiKeyValue: string,
+    disableDevicePairing: boolean,
+  ): Promise<void>;
   unIdleOpenClaw(namespace: string): Promise<void>;
   deleteOpenClawCR(namespace: string): Promise<void>;
 }

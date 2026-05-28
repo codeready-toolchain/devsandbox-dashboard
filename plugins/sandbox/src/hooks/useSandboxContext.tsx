@@ -68,7 +68,11 @@ interface SandboxContextType {
   openclawError: string | null;
   openclawStatus: OpenClawStatus;
   openclawUILink: string | undefined;
-  handleOpenClawInstance: (userNamespace: string, apiKeyValue?: string, disableDevicePairing?: boolean) => void;
+  handleOpenClawInstance: (
+    userNamespace: string,
+    apiKeyValue?: string,
+    disableDevicePairing?: boolean,
+  ) => void;
   deleteOpenClaw: (userNamespace: string) => Promise<void>;
   refetchOpenClaw: (userNamespace: string) => Promise<OpenClawDataResult>;
   segmentTrackClick?: (data: SegmentTrackingData) => Promise<void>;
@@ -273,7 +277,11 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
         pendingApiKey.current = undefined;
         pendingDisableDevicePairing.current = false;
         try {
-          await openclawApi.createOpenClaw(targetNamespace, apiKey, disableDevicePairing);
+          await openclawApi.createOpenClaw(
+            targetNamespace,
+            apiKey,
+            disableDevicePairing,
+          );
           setOpenclawStatus(OpenClawStatus.PROVISIONING);
           return {
             status: OpenClawStatus.PROVISIONING,
