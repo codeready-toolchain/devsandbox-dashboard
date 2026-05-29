@@ -154,6 +154,102 @@ export const OpenClawLaunchInfoModal: React.FC<
     );
   }
 
+  if (openclawStatus === OpenClawStatus.TERMINATING) {
+    return (
+      <Dialog
+        open={modalOpen}
+        onClose={handleClose}
+        fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor:
+              theme.palette.mode === 'dark'
+                ? '#383838'
+                : theme.palette.background.paper,
+          },
+        }}
+      >
+        <DialogTitle
+          variant="h3"
+          sx={{ fontWeight: 700, padding: '32px 24px 0 24px' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '30rem' }}>
+              Cleaning up previous OpenClaw instance
+            </div>
+          </div>
+        </DialogTitle>
+        <IconButton
+          aria-label="close"
+          onClick={handleClose}
+          sx={{
+            position: 'absolute',
+            right: 16,
+            top: 24,
+            color: theme.palette.grey[500],
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+        <DialogContent
+          sx={{
+            padding: '6px 24px',
+            backgroundColor: 'transparent !important',
+          }}
+        >
+          <Typography
+            variant="body1"
+            sx={{ mr: 2, my: 0.5, fontSize: '16px', fontWeight: 420 }}
+          >
+            Waiting for the previous instance to be fully removed before
+            provisioning a new one.
+          </Typography>
+          <div style={{ backgroundColor: 'transparent' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                mt: 4,
+                mb: 4,
+                backgroundColor: 'transparent',
+              }}
+            >
+              <CircularProgress size="5rem" />
+            </Box>
+            <Alert variant="outlined" severity="info">
+              <Typography
+                variant="body1"
+                sx={{ fontSize: '16px', fontWeight: 500 }}
+              >
+                You can close this modal. Follow the status of your instance on
+                the OpenClaw sandbox card.
+              </Typography>
+            </Alert>
+          </div>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'flex-start', pl: 3 }}>
+          <Button
+            variant="outlined"
+            onClick={handleClose}
+            sx={{
+              width: '15%',
+              textTransform: 'none',
+              marginTop: theme.spacing(2),
+              marginBottom: theme.spacing(2),
+              border: `1px solid ${theme.palette.primary.main}`,
+              '&:hover': {
+                backgroundColor: 'rgba(25, 118, 210, 0.04)',
+                borderColor: '#1976d2',
+              },
+            }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
+  }
+
   if (openclawStatus === OpenClawStatus.PROVISIONING) {
     return (
       <Dialog

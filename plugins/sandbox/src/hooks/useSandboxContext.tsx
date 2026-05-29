@@ -33,6 +33,7 @@ import {
   OpenClawStatus,
   getOpenClawReadyCondition,
   isSpaceRequestReady,
+  isSpaceRequestTerminating,
   getSpaceRequestNamespace,
 } from '../utils/openclaw-utils';
 
@@ -256,8 +257,28 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       const sr = await openclawApi.getSpaceRequest(userNamespace);
 
       if (!sr) {
+        if (pendingApiKey.current) {
+          try {
+            await openclawApi.createSpaceRequest(userNamespace);
+            setOpenclawStatus(OpenClawStatus.PROVISIONING);
+            return {
+              status: OpenClawStatus.PROVISIONING,
+              namespace: undefined,
+            };
+          } catch (e) {
+            pendingApiKey.current = undefined;
+            setOpenclawError(errorMessage(e));
+            setOpenclawStatus(OpenClawStatus.NEW);
+            return { status: OpenClawStatus.NEW, namespace: undefined };
+          }
+        }
         setOpenclawStatus(OpenClawStatus.NEW);
         return { status: OpenClawStatus.NEW, namespace: undefined };
+      }
+
+      if (isSpaceRequestTerminating(sr)) {
+        setOpenclawStatus(OpenClawStatus.TERMINATING);
+        return { status: OpenClawStatus.TERMINATING, namespace: undefined };
       }
 
       const targetNamespace = getSpaceRequestNamespace(sr);
@@ -334,6 +355,16 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       currentStatus === OpenClawStatus.PROVISIONING ||
       currentStatus === OpenClawStatus.READY
     ) {
+      return;
+    }
+
+    if (currentStatus === OpenClawStatus.TERMINATING) {
+      if (!apiKeyValue) {
+        return;
+      }
+      pendingApiKey.current = apiKeyValue;
+      pendingDisableDevicePairing.current = disableDevicePairing ?? false;
+      setOpenclawStatus(OpenClawStatus.TERMINATING);
       return;
     }
 
@@ -472,7 +503,8 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     if (
       userData?.defaultUserNamespace &&
-      openclawStatus === OpenClawStatus.PROVISIONING
+      (openclawStatus === OpenClawStatus.PROVISIONING ||
+        openclawStatus === OpenClawStatus.TERMINATING)
     ) {
       const handle = setInterval(
         getOpenClawData,

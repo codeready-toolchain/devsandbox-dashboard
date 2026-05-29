@@ -23,6 +23,7 @@ export enum OpenClawStatus {
   READY = 'ready',
   FAILED = 'failed',
   IDLED = 'idled',
+  TERMINATING = 'terminating',
 }
 
 export const getOpenClawReadyCondition = (
@@ -84,6 +85,16 @@ export const newSpaceRequestObject = (namespace: string): string =>
       tierName: 'claw',
     },
   });
+
+export const isSpaceRequestTerminating = (
+  sr: SpaceRequestItem | undefined,
+): boolean => {
+  if (!sr?.status?.conditions) {
+    return false;
+  }
+  const [notReady, condition] = isConditionFalse('Ready', sr.status.conditions);
+  return notReady && condition?.reason === 'Terminating';
+};
 
 export const isSpaceRequestReady = (
   sr: SpaceRequestItem | undefined,
