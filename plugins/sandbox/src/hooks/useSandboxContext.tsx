@@ -131,6 +131,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   const [clawNamespace, setClawNamespace] = useState<string | undefined>();
   const pendingApiKey = useRef<string | undefined>(undefined);
   const pendingDisableDevicePairing = useRef<boolean>(false);
+  const creatingSpaceRequest = useRef(false);
   const [openclawData, setOpenclawData] = useState<OpenClawItem | undefined>();
   const [openclawStatus, setOpenclawStatus] = useState<OpenClawStatus>(
     OpenClawStatus.NEW,
@@ -257,7 +258,8 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       const sr = await openclawApi.getSpaceRequest(userNamespace);
 
       if (!sr) {
-        if (pendingApiKey.current) {
+        if (pendingApiKey.current && !creatingSpaceRequest.current) {
+          creatingSpaceRequest.current = true;
           try {
             await openclawApi.createSpaceRequest(userNamespace);
             setOpenclawStatus(OpenClawStatus.PROVISIONING);
@@ -270,6 +272,8 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
             setOpenclawError(errorMessage(e));
             setOpenclawStatus(OpenClawStatus.NEW);
             return { status: OpenClawStatus.NEW, namespace: undefined };
+          } finally {
+            creatingSpaceRequest.current = false;
           }
         }
         setOpenclawStatus(OpenClawStatus.NEW);
