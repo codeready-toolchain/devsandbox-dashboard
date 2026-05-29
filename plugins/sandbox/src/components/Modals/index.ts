@@ -19,7 +19,6 @@ export { default as AnsibleLaunchInfoModal } from './AnsibleLaunchInfoModal';
 export { default as PhoneVerificationModal } from './PhoneVerificationModal';
 export { default as AnsibleDeleteInstanceModal } from './AnsibleDeleteInstanceModal';
 export { default as OpenClawLaunchInfoModal } from './OpenClawLaunchInfoModal';
-export { default as OpenClawLaunchInfoModalTwoPanel } from './OpenClawLaunchInfoModalTwoPanel';
 export { default as OpenClawDeleteInstanceModal } from './OpenClawDeleteInstanceModal';
 export { ProviderCredentialForm } from './ProviderCredentialForm';
 export { CredentialList } from './CredentialList';
