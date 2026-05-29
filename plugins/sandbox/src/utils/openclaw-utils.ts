@@ -115,10 +115,18 @@ export const getSpaceRequestNamespace = (
   return sr?.status?.namespaceAccess?.[0]?.name;
 };
 
+export type OpenClawCredentialInput = {
+  name: string;
+  type: string;
+  provider: string;
+  secretName: string;
+  secretKeys: string[];
+};
+
 export const newOpenClawObject = (
   namespace: string,
   name: string,
-  secretName: string,
+  credentials: OpenClawCredentialInput[],
   disableDevicePairing: boolean,
 ): string =>
   JSON.stringify({
@@ -133,29 +141,26 @@ export const newOpenClawObject = (
       },
     },
     spec: {
-      credentials: [
-        {
-          name: 'gemini',
-          type: 'apiKey',
-          secretRef: [
-            {
-              name: secretName,
-              key: 'api-key',
-            },
-          ],
-          provider: 'google',
-        },
-      ],
+      credentials: credentials.map(cred => ({
+        name: cred.name,
+        type: cred.type,
+        secretRef: cred.secretKeys.map(key => ({
+          name: cred.secretName,
+          key,
+        })),
+        provider: cred.provider,
+      })),
       auth: {
         disableDevicePairing: disableDevicePairing,
       },
     },
   });
 
-export const newOpenClawAPIKeySecretObject = (
+export const newOpenClawSecretObject = (
   namespace: string,
   name: string,
-  apiKeyValue: string,
+  data: Record<string, string>,
+  instanceName = 'claw',
 ): string =>
   JSON.stringify({
     apiVersion: 'v1',
@@ -165,10 +170,8 @@ export const newOpenClawAPIKeySecretObject = (
       name: name,
       labels: {
         'app.kubernetes.io/name': 'claw',
-        'claw.sandbox.redhat.com/instance': name,
+        'claw.sandbox.redhat.com/instance': instanceName,
       },
     },
-    stringData: {
-      'api-key': apiKeyValue,
-    },
+    stringData: data,
   });

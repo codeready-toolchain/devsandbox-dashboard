@@ -23,6 +23,7 @@ import React, {
   useState,
 } from 'react';
 import { AAPData, OpenClawItem, SignupData } from '../types';
+import { AddedCredential } from '../utils/openclaw-providers';
 import { useApi, configApiRef } from '@backstage/core-plugin-api';
 import { aapApiRef, kubeApiRef, openclawApiRef, registerApiRef } from '../api';
 import { useRecaptcha } from './useRecaptcha';
@@ -37,15 +38,21 @@ import {
   getSpaceRequestNamespace,
 } from '../utils/openclaw-utils';
 
-interface OpenClawDataResult {
-  status: OpenClawStatus;
-  namespace: string | undefined;
-}
 import { errorMessage } from '../utils/common';
 import {
   useSegmentAnalytics,
   SegmentTrackingData,
 } from '../utils/segment-analytics';
+
+interface AAPDataResult {
+  status: AnsibleStatus;
+  data: AAPData | undefined;
+}
+
+interface OpenClawDataResult {
+  status: OpenClawStatus;
+  namespace: string | undefined;
+}
 
 interface SandboxContextType {
   userStatus: string;
@@ -71,7 +78,7 @@ interface SandboxContextType {
   openclawUILink: string | undefined;
   handleOpenClawInstance: (
     userNamespace: string,
-    apiKeyValue?: string,
+    credentials?: AddedCredential[],
     disableDevicePairing?: boolean,
   ) => void;
   deleteOpenClaw: (userNamespace: string) => Promise<void>;
@@ -129,7 +136,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   const [ansibleError, setAnsibleError] = useState<string | null>(null);
 
   const [clawNamespace, setClawNamespace] = useState<string | undefined>();
-  const pendingApiKey = useRef<string | undefined>(undefined);
+  const pendingCredentials = useRef<AddedCredential[] | undefined>(undefined);
   const pendingDisableDevicePairing = useRef<boolean>(false);
   const creatingSpaceRequest = useRef(false);
   const [openclawData, setOpenclawData] = useState<OpenClawItem | undefined>();
@@ -192,7 +199,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const getAAPData = async (userNamespace: string) => {
+  const getAAPData = async (userNamespace: string): Promise<AAPDataResult> => {
     try {
       const data = await aapApi.getAAP(userNamespace);
       setAnsibleData(data);
@@ -215,25 +222,29 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
           }
         }
       }
+      return { status: st, data };
     } catch (e) {
       setAnsibleError(errorMessage(e));
+      return { status: AnsibleStatus.UNKNOWN, data: undefined };
     }
   };
 
   const handleAAPInstance = async (userNamespace: string) => {
-    await getAAPData(userNamespace);
+    const { status: currentStatus, data: currentData } = await getAAPData(
+      userNamespace,
+    );
 
     if (
-      ansibleStatus === AnsibleStatus.PROVISIONING ||
-      ansibleStatus === AnsibleStatus.READY
+      currentStatus === AnsibleStatus.PROVISIONING ||
+      currentStatus === AnsibleStatus.READY
     ) {
       return;
     }
 
     if (
-      ansibleStatus === AnsibleStatus.IDLED &&
-      ansibleData &&
-      ansibleData?.items?.length > 0
+      currentStatus === AnsibleStatus.IDLED &&
+      currentData &&
+      currentData?.items?.length > 0
     ) {
       try {
         await aapApi.unIdleAAP(userNamespace);
@@ -296,15 +307,15 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       const data = await openclawApi.getOpenClaw(targetNamespace);
       setOpenclawData(data);
 
-      if (!data && pendingApiKey.current) {
-        const apiKey = pendingApiKey.current;
+      if (!data && pendingCredentials.current) {
+        const credentials = pendingCredentials.current;
         const disableDevicePairing = pendingDisableDevicePairing.current;
-        pendingApiKey.current = undefined;
+        pendingCredentials.current = undefined;
         pendingDisableDevicePairing.current = false;
         try {
           await openclawApi.createOpenClaw(
             targetNamespace,
-            apiKey,
+            credentials,
             disableDevicePairing,
           );
           setOpenclawStatus(OpenClawStatus.PROVISIONING);
@@ -322,14 +333,18 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       const st = getOpenClawReadyCondition(data, setOpenclawError);
       setOpenclawStatus(st);
       if (data?.status?.url) {
-        const url = new URL(data.status.url);
-        if (!data.spec?.auth?.disableDevicePairing) {
-          url.pathname = `${url.pathname.replace(
-            /\/$/,
-            '',
-          )}/integration/device-pairing/`;
+        try {
+          const url = new URL(data.status.url);
+          if (!data.spec?.auth?.disableDevicePairing) {
+            url.pathname = `${url.pathname.replace(
+              /\/$/,
+              '',
+            )}/integration/device-pairing/`;
+          }
+          setOpenclawUILink(url.toString());
+        } catch {
+          setOpenclawUILink(data.status.url);
         }
-        setOpenclawUILink(url.toString());
       }
 
       if (st === OpenClawStatus.UNKNOWN && isSpaceRequestReady(sr)) {
@@ -349,7 +364,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const handleOpenClawInstance = async (
     userNamespace: string,
-    apiKeyValue?: string,
+    credentials?: AddedCredential[],
     disableDevicePairing?: boolean,
   ) => {
     const { status: currentStatus, namespace: resolvedNamespace } =
@@ -384,17 +399,17 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       return;
     }
 
-    if (!apiKeyValue) {
+    if (!credentials || credentials.length === 0) {
       return;
     }
 
     try {
-      pendingApiKey.current = apiKeyValue;
+      pendingCredentials.current = credentials;
       pendingDisableDevicePairing.current = disableDevicePairing ?? false;
       await openclawApi.createSpaceRequest(userNamespace);
       setOpenclawStatus(OpenClawStatus.PROVISIONING);
     } catch (e) {
-      pendingApiKey.current = undefined;
+      pendingCredentials.current = undefined;
       setOpenclawError(errorMessage(e));
       // eslint-disable-next-line no-console
       console.error(e);

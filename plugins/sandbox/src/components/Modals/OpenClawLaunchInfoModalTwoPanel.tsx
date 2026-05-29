@@ -15,7 +15,6 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
-import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -23,8 +22,14 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
+import Divider from '@mui/material/Divider';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
+import List from '@mui/material/List';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemText from '@mui/material/ListItemText';
+import ListSubheader from '@mui/material/ListSubheader';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
@@ -33,6 +38,7 @@ import { useTheme } from '@mui/material/styles';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CloseIcon from '@mui/icons-material/Close';
 import ErrorIcon from '@mui/icons-material/Error';
+import SearchIcon from '@mui/icons-material/Search';
 import { useSandboxContext } from '../../hooks/useSandboxContext';
 import { OpenClawStatus } from '../../utils/openclaw-utils';
 import {
@@ -44,18 +50,19 @@ import {
 import { ProviderCredentialForm } from './ProviderCredentialForm';
 import { CredentialList, AddedCredential } from './CredentialList';
 
-type OpenClawLaunchInfoModalProps = {
+type OpenClawLaunchInfoModalTwoPanelProps = {
   modalOpen: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
-export const OpenClawLaunchInfoModal: React.FC<
-  OpenClawLaunchInfoModalProps
+export const OpenClawLaunchInfoModalTwoPanel: React.FC<
+  OpenClawLaunchInfoModalTwoPanelProps
 > = ({ modalOpen, setOpen }) => {
   const theme = useTheme();
   const { userData, openclawError, openclawStatus, handleOpenClawInstance } =
     useSandboxContext();
 
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedProvider, setSelectedProvider] =
     useState<ProviderConfig | null>(null);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
@@ -72,6 +79,7 @@ export const OpenClawLaunchInfoModal: React.FC<
   }, [modalOpen]);
 
   const resetForm = () => {
+    setSearchQuery('');
     setSelectedProvider(null);
     setFieldValues({});
     setFieldErrors({});
@@ -131,10 +139,24 @@ export const OpenClawLaunchInfoModal: React.FC<
     }
   };
 
-  const availableProviders = useMemo(() => {
+  const filteredProviders = useMemo(() => {
     const alreadyAdded = new Set(addedCredentials.map(c => c.provider.id));
-    return PROVIDERS.filter(p => !alreadyAdded.has(p.id));
-  }, [addedCredentials]);
+    const query = searchQuery.toLowerCase();
+    return PROVIDERS.filter(
+      p => !alreadyAdded.has(p.id) && p.name.toLowerCase().includes(query),
+    );
+  }, [searchQuery, addedCredentials]);
+
+  const groupedProviders = useMemo(() => {
+    const groups: Partial<Record<ProviderCategory, ProviderConfig[]>> = {};
+    for (const p of filteredProviders) {
+      if (!groups[p.category]) {
+        groups[p.category] = [];
+      }
+      groups[p.category]!.push(p);
+    }
+    return groups;
+  }, [filteredProviders]);
 
   const dialogPaperSx = {
     backgroundColor:
@@ -190,102 +212,6 @@ export const OpenClawLaunchInfoModal: React.FC<
             onClick={handleClose}
             sx={{
               textTransform: 'none',
-              border: `1px solid ${theme.palette.primary.main}`,
-              '&:hover': {
-                backgroundColor: 'rgba(25, 118, 210, 0.04)',
-                borderColor: '#1976d2',
-              },
-            }}
-          >
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
-    );
-  }
-
-  if (openclawStatus === OpenClawStatus.TERMINATING) {
-    return (
-      <Dialog
-        open={modalOpen}
-        onClose={handleClose}
-        fullWidth
-        PaperProps={{
-          sx: {
-            backgroundColor:
-              theme.palette.mode === 'dark'
-                ? '#383838'
-                : theme.palette.background.paper,
-          },
-        }}
-      >
-        <DialogTitle
-          variant="h3"
-          sx={{ fontWeight: 700, padding: '32px 24px 0 24px' }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '30rem' }}>
-              Cleaning up previous OpenClaw instance
-            </div>
-          </div>
-        </DialogTitle>
-        <IconButton
-          aria-label="close"
-          onClick={handleClose}
-          sx={{
-            position: 'absolute',
-            right: 16,
-            top: 24,
-            color: theme.palette.grey[500],
-          }}
-        >
-          <CloseIcon />
-        </IconButton>
-        <DialogContent
-          sx={{
-            padding: '6px 24px',
-            backgroundColor: 'transparent !important',
-          }}
-        >
-          <Typography
-            variant="body1"
-            sx={{ mr: 2, my: 0.5, fontSize: '16px', fontWeight: 420 }}
-          >
-            Waiting for the previous instance to be fully removed before
-            provisioning a new one.
-          </Typography>
-          <div style={{ backgroundColor: 'transparent' }}>
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                mt: 4,
-                mb: 4,
-                backgroundColor: 'transparent',
-              }}
-            >
-              <CircularProgress size="5rem" />
-            </Box>
-            <Alert variant="outlined" severity="info">
-              <Typography
-                variant="body1"
-                sx={{ fontSize: '16px', fontWeight: 500 }}
-              >
-                You can close this modal. Follow the status of your instance on
-                the OpenClaw sandbox card.
-              </Typography>
-            </Alert>
-          </div>
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: 'flex-start', pl: 3 }}>
-          <Button
-            variant="outlined"
-            onClick={handleClose}
-            sx={{
-              width: '15%',
-              textTransform: 'none',
-              marginTop: theme.spacing(2),
-              marginBottom: theme.spacing(2),
               border: `1px solid ${theme.palette.primary.main}`,
               '&:hover': {
                 backgroundColor: 'rgba(25, 118, 210, 0.04)',
@@ -413,6 +339,7 @@ export const OpenClawLaunchInfoModal: React.FC<
       open={modalOpen}
       onClose={handleClose}
       fullWidth
+      maxWidth="md"
       PaperProps={{ sx: dialogPaperSx }}
     >
       <DialogTitle
@@ -420,7 +347,7 @@ export const OpenClawLaunchInfoModal: React.FC<
         sx={{ fontWeight: 700, padding: '32px 24px 0 24px' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '30rem' }}>Provision OpenClaw instance</div>
+          <div>Provision OpenClaw instance</div>
         </div>
       </DialogTitle>
       <IconButton
@@ -446,62 +373,134 @@ export const OpenClawLaunchInfoModal: React.FC<
           instance.
         </Typography>
 
-        <Autocomplete
-          options={availableProviders}
-          value={selectedProvider}
-          onChange={(_, newValue) => {
-            setSelectedProvider(newValue);
-            setFieldValues({});
-            setFieldErrors({});
-          }}
-          getOptionLabel={option => option.name}
-          groupBy={option =>
-            CATEGORY_LABELS[option.category as ProviderCategory]
-          }
-          renderInput={params => (
+        <Stack direction="row" spacing={2} sx={{ minHeight: 350 }}>
+          {/* Left panel: provider list */}
+          <Box
+            sx={{
+              width: 240,
+              flexShrink: 0,
+              borderRight: `1px solid ${theme.palette.divider}`,
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
             <TextField
-              {...params}
               variant="filled"
-              label="Search providers..."
-              InputProps={{
-                ...params.InputProps,
-                disableUnderline: true,
-              }}
               size="small"
+              placeholder="Search providers..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              InputProps={{
+                disableUnderline: true,
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ mb: 1, mr: 2 }}
             />
-          )}
-          isOptionEqualToValue={(option, value) => option.id === value.id}
-        />
-
-        {selectedProvider && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-              {selectedProvider.name}
-            </Typography>
-            <ProviderCredentialForm
-              provider={selectedProvider}
-              values={fieldValues}
-              errors={fieldErrors}
-              onChange={handleFieldChange}
-            />
-            <Stack direction="row" sx={{ mt: 2 }}>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={handleAddCredential}
-                sx={{ textTransform: 'none' }}
-              >
-                Add Credential
-              </Button>
-            </Stack>
+            <List
+              sx={{
+                overflow: 'auto',
+                flex: 1,
+                mr: 2,
+                '& .v5-MuiListSubheader-root': {
+                  lineHeight: '28px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                },
+              }}
+              dense
+            >
+              {(Object.keys(groupedProviders) as ProviderCategory[]).map(
+                category => (
+                  <React.Fragment key={category}>
+                    <ListSubheader disableSticky>
+                      {CATEGORY_LABELS[category]}
+                    </ListSubheader>
+                    {groupedProviders[category]!.map(provider => (
+                      <ListItemButton
+                        key={provider.id}
+                        selected={selectedProvider?.id === provider.id}
+                        onClick={() => {
+                          setSelectedProvider(provider);
+                          setFieldValues({});
+                          setFieldErrors({});
+                        }}
+                        sx={{ borderRadius: 1, py: 0.5 }}
+                      >
+                        <ListItemText
+                          primary={provider.name}
+                          primaryTypographyProps={{ variant: 'body2' }}
+                        />
+                      </ListItemButton>
+                    ))}
+                  </React.Fragment>
+                ),
+              )}
+              {filteredProviders.length === 0 && (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ p: 2 }}
+                >
+                  No providers found.
+                </Typography>
+              )}
+            </List>
           </Box>
-        )}
 
-        <CredentialList
-          credentials={addedCredentials}
-          onDelete={handleDeleteCredential}
-          showEmptyState
-        />
+          {/* Right panel: form + credential list */}
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            {selectedProvider ? (
+              <>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  {selectedProvider.name}
+                </Typography>
+                <ProviderCredentialForm
+                  provider={selectedProvider}
+                  values={fieldValues}
+                  errors={fieldErrors}
+                  onChange={handleFieldChange}
+                />
+                <Stack direction="row" sx={{ mt: 2 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={handleAddCredential}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    Add Credential
+                  </Button>
+                </Stack>
+              </>
+            ) : (
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flex: 1,
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Select a provider from the list to configure credentials.
+                </Typography>
+              </Box>
+            )}
+
+            <Divider sx={{ my: 2 }} />
+
+            <CredentialList
+              credentials={addedCredentials}
+              onDelete={handleDeleteCredential}
+              showEmptyState
+            />
+          </Box>
+        </Stack>
 
         <FormControlLabel
           control={
@@ -550,4 +549,4 @@ export const OpenClawLaunchInfoModal: React.FC<
   );
 };
 
-export default OpenClawLaunchInfoModal;
+export default OpenClawLaunchInfoModalTwoPanel;
