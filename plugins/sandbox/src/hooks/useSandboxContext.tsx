@@ -139,6 +139,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   const pendingCredentials = useRef<AddedCredential[] | undefined>(undefined);
   const pendingDisableDevicePairing = useRef<boolean>(false);
   const creatingSpaceRequest = useRef(false);
+  const creatingOpenClaw = useRef(false);
   const [openclawData, setOpenclawData] = useState<OpenClawItem | undefined>();
   const [openclawStatus, setOpenclawStatus] = useState<OpenClawStatus>(
     OpenClawStatus.NEW,
@@ -262,13 +263,32 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  // Polls the current OpenClaw provisioning state for the user. This function
+  // is called on an interval, so every branch must be idempotent and guard
+  // against concurrent in-flight mutations (see creatingSpaceRequest /
+  // creatingOpenClaw refs). The overall flow is:
+  //
+  //   1. Fetch the SpaceRequest — if none exists yet and the user has submitted
+  //      credentials, kick off creation. Otherwise report NEW.
+  //   2. If the SpaceRequest is terminating or hasn't been assigned a namespace
+  //      yet, report the corresponding transient status.
+  //   3. Once a target namespace is known, fetch the OpenClaw resource inside
+  //      it. If it doesn't exist and credentials are pending, create it.
+  //   4. Derive the final status from the OpenClaw ready-condition and, when
+  //      available, build the UI link (with device-pairing path if enabled).
+  //   5. Edge case: if the OpenClaw status is unknown but the SpaceRequest
+  //      itself is ready, treat it as still provisioning so the UI keeps
+  //      polling rather than showing an error.
   const getOpenClawData = async (
     userNamespace: string,
   ): Promise<OpenClawDataResult> => {
     try {
+      // Step 1 — resolve the SpaceRequest
       const sr = await openclawApi.getSpaceRequest(userNamespace);
 
       if (!sr) {
+        // No SpaceRequest yet: if credentials were submitted, create one
+        // (guarded to prevent duplicate calls from concurrent polls).
         if (pendingCredentials.current && !creatingSpaceRequest.current) {
           creatingSpaceRequest.current = true;
           try {
@@ -291,6 +311,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
         return { status: OpenClawStatus.NEW, namespace: undefined };
       }
 
+      // Step 2 — handle transient SpaceRequest states
       if (isSpaceRequestTerminating(sr)) {
         setOpenclawStatus(OpenClawStatus.TERMINATING);
         return { status: OpenClawStatus.TERMINATING, namespace: undefined };
@@ -298,16 +319,21 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
 
       const targetNamespace = getSpaceRequestNamespace(sr);
       if (!targetNamespace) {
+        // SpaceRequest exists but hasn't been assigned a namespace yet
         setOpenclawStatus(OpenClawStatus.PROVISIONING);
         return { status: OpenClawStatus.PROVISIONING, namespace: undefined };
       }
 
       setClawNamespace(targetNamespace);
 
+      // Step 3 — fetch (or create) the OpenClaw resource
       const data = await openclawApi.getOpenClaw(targetNamespace);
       setOpenclawData(data);
 
-      if (!data && pendingCredentials.current) {
+      // OpenClaw doesn't exist yet: if credentials are pending, create it
+      // (guarded to prevent duplicate calls from concurrent polls).
+      if (!data && pendingCredentials.current && !creatingOpenClaw.current) {
+        creatingOpenClaw.current = true;
         const credentials = pendingCredentials.current;
         const disableDevicePairing = pendingDisableDevicePairing.current;
         try {
@@ -327,9 +353,12 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
           setOpenclawError(errorMessage(e));
           setOpenclawStatus(OpenClawStatus.UNKNOWN);
           return { status: OpenClawStatus.UNKNOWN, namespace: targetNamespace };
+        } finally {
+          creatingOpenClaw.current = false;
         }
       }
 
+      // Step 4 — derive status and build the UI link
       const st = getOpenClawReadyCondition(data, setOpenclawError);
       setOpenclawStatus(st);
       if (data?.status?.url) {
@@ -347,6 +376,8 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
 
+      // Step 5 — if the OpenClaw status can't be determined yet but the
+      // SpaceRequest is ready, report PROVISIONING so we keep polling.
       if (st === OpenClawStatus.UNKNOWN && isSpaceRequestReady(sr)) {
         setOpenclawStatus(OpenClawStatus.PROVISIONING);
         return {
