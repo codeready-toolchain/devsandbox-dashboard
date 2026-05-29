@@ -80,7 +80,7 @@ interface SandboxContextType {
     userNamespace: string,
     credentials?: AddedCredential[],
     disableDevicePairing?: boolean,
-  ) => void;
+  ) => Promise<boolean>;
   deleteOpenClaw: (userNamespace: string) => Promise<void>;
   refetchOpenClaw: (userNamespace: string) => Promise<OpenClawDataResult>;
   segmentTrackClick?: (data: SegmentTrackingData) => Promise<void>;
@@ -310,14 +310,14 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       if (!data && pendingCredentials.current) {
         const credentials = pendingCredentials.current;
         const disableDevicePairing = pendingDisableDevicePairing.current;
-        pendingCredentials.current = undefined;
-        pendingDisableDevicePairing.current = false;
         try {
           await openclawApi.createOpenClaw(
             targetNamespace,
             credentials,
             disableDevicePairing,
           );
+          pendingCredentials.current = undefined;
+          pendingDisableDevicePairing.current = false;
           setOpenclawStatus(OpenClawStatus.PROVISIONING);
           return {
             status: OpenClawStatus.PROVISIONING,
@@ -366,7 +366,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     userNamespace: string,
     credentials?: AddedCredential[],
     disableDevicePairing?: boolean,
-  ) => {
+  ): Promise<boolean> => {
     const { status: currentStatus, namespace: resolvedNamespace } =
       await getOpenClawData(userNamespace);
 
@@ -374,33 +374,34 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       currentStatus === OpenClawStatus.PROVISIONING ||
       currentStatus === OpenClawStatus.READY
     ) {
-      return;
+      return true;
     }
 
     if (currentStatus === OpenClawStatus.TERMINATING) {
       if (!credentials || credentials.length === 0) {
-        return;
+        return false;
       }
       pendingCredentials.current = credentials;
       pendingDisableDevicePairing.current = disableDevicePairing ?? false;
       setOpenclawStatus(OpenClawStatus.TERMINATING);
-      return;
+      return true;
     }
 
     if (currentStatus === OpenClawStatus.IDLED && resolvedNamespace) {
       try {
         await openclawApi.unIdleOpenClaw(resolvedNamespace);
         setOpenclawStatus(OpenClawStatus.PROVISIONING);
+        return true;
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error(e);
         setOpenclawError(errorMessage(e));
+        return false;
       }
-      return;
     }
 
     if (!credentials || credentials.length === 0) {
-      return;
+      return false;
     }
 
     try {
@@ -408,11 +409,13 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       pendingDisableDevicePairing.current = disableDevicePairing ?? false;
       await openclawApi.createSpaceRequest(userNamespace);
       setOpenclawStatus(OpenClawStatus.PROVISIONING);
+      return true;
     } catch (e) {
       pendingCredentials.current = undefined;
       setOpenclawError(errorMessage(e));
       // eslint-disable-next-line no-console
       console.error(e);
+      return false;
     }
   };
 

@@ -126,16 +126,18 @@ export const OpenClawLaunchInfoModalTwoPanel: React.FC<
     setAddedCredentials(prev => prev.filter(c => c.provider.id !== providerId));
   };
 
-  const handleProvision = () => {
+  const handleProvision = async () => {
     if (addedCredentials.length === 0) return;
 
     if (userData?.defaultUserNamespace) {
-      handleOpenClawInstance(
+      const success = await handleOpenClawInstance(
         userData.defaultUserNamespace,
         addedCredentials,
         !devicePairingEnabled,
       );
-      resetForm();
+      if (success) {
+        resetForm();
+      }
     }
   };
 
