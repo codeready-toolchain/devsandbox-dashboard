@@ -7,3 +7,4 @@ coverage
 .eslintrc.js
 index.json
 red-hat-developer-hub-backstage-plugin-sandbox
+rhdh-local

@@ -18,10 +18,13 @@ import { ConfigApi } from '@backstage/core-plugin-api';
 import { errorMessage } from '../utils/common';
 import {
   newOpenClawObject,
-  newOpenClawAPIKeySecretObject,
+  newOpenClawSecretObject,
   newSpaceRequestObject,
+  OpenClawCredentialInput,
+  OpenClawCustomProviderInput,
 } from '../utils/openclaw-utils';
 import { OpenClawItem, SpaceRequestItem } from '../types';
+import { AddedCredential, ProviderConfig } from '../utils/openclaw-providers';
 import { SecureFetchApi } from './SecureFetchClient';
 
 export type OpenClawBackendClientOptions = {
@@ -29,7 +32,6 @@ export type OpenClawBackendClientOptions = {
   secureFetchApi: SecureFetchApi;
 };
 
-const clawName = 'claw';
 export interface OpenClawService {
   getSpaceRequest(namespace: string): Promise<SpaceRequestItem | undefined>;
   createSpaceRequest(namespace: string): Promise<void>;
@@ -37,7 +39,7 @@ export interface OpenClawService {
   getOpenClaw(namespace: string): Promise<OpenClawItem | undefined>;
   createOpenClaw(
     namespace: string,
-    apiKeyValue: string,
+    credentials: AddedCredential[],
     disableDevicePairing: boolean,
   ): Promise<void>;
   unIdleOpenClaw(namespace: string): Promise<void>;
@@ -45,6 +47,9 @@ export interface OpenClawService {
 }
 
 export class OpenClawBackendClient implements OpenClawService {
+  private static readonly CLAW_NAME = 'claw';
+  private static readonly CUSTOM_LLM_NAME = 'custom-llm';
+
   private readonly configApi: ConfigApi;
   private readonly secureFetchApi: SecureFetchApi;
 
@@ -110,7 +115,7 @@ export class OpenClawBackendClient implements OpenClawService {
     namespace: string,
   ): Promise<OpenClawItem | undefined> => {
     const kubeApi = this.kubeAPI;
-    const url = `/apis/claw.sandbox.redhat.com/v1alpha1/namespaces/${namespace}/claws/${clawName}`;
+    const url = `/apis/claw.sandbox.redhat.com/v1alpha1/namespaces/${namespace}/claws/${OpenClawBackendClient.CLAW_NAME}`;
     const response = await this.secureFetchApi.fetch(`${kubeApi}${url}`, {
       method: 'GET',
     });
@@ -125,56 +130,235 @@ export class OpenClawBackendClient implements OpenClawService {
     return response.json();
   };
 
+  private static extractHostname(url: string): string {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return url;
+    }
+  }
+
+  private static secretKeyForProvider(config: ProviderConfig): string {
+    if (config.credentialType === 'gcp') {
+      return `${config.id}-sa-key.json`;
+    }
+    return `${config.id}-api-key`;
+  }
+
+  private static buildSecretData(
+    cred: AddedCredential,
+  ): Record<string, string> {
+    const config = cred.provider;
+    const secretKey = OpenClawBackendClient.secretKeyForProvider(config);
+
+    if (config.credentialType === 'gcp') {
+      const saKey = cred.values['sa-key.json'];
+      return saKey ? { [secretKey]: saKey } : {};
+    }
+
+    const apiKey = cred.values['api-key'];
+    if (apiKey) {
+      return { [secretKey]: apiKey };
+    }
+    return {};
+  }
+
+  private static buildCredentialInput(
+    cred: AddedCredential,
+    secretName: string,
+  ): OpenClawCredentialInput {
+    const config = cred.provider;
+    const secretKey = OpenClawBackendClient.secretKeyForProvider(config);
+
+    const base: OpenClawCredentialInput = {
+      name: config.id,
+      type: config.credentialType,
+      secretName,
+      secretKeys: [secretKey],
+    };
+
+    if (config.credentialType === 'gcp') {
+      return {
+        ...base,
+        name: config.id === 'anthropic-vertex' ? 'anthropic-vertex' : 'gemini',
+        provider: config.provider,
+        gcp: {
+          project: cred.values['project-id'] ?? '',
+          location: cred.values['region'] ?? '',
+        },
+      };
+    }
+
+    if (config.id === 'custom') {
+      const endpointUrl = cred.values['endpoint-url'] ?? '';
+      const apiKey = cred.values['api-key'];
+      return {
+        ...base,
+        name: OpenClawBackendClient.CUSTOM_LLM_NAME,
+        type: apiKey ? 'bearer' : 'none',
+        domain: OpenClawBackendClient.extractHostname(endpointUrl),
+        secretKeys: apiKey ? [secretKey] : [],
+      };
+    }
+
+    return {
+      ...base,
+      provider: config.provider,
+      domain: config.domain,
+    };
+  }
+
+  private static buildCustomProvider(
+    cred: AddedCredential,
+  ): OpenClawCustomProviderInput | undefined {
+    if (cred.provider.id !== 'custom') return undefined;
+
+    const endpointUrl = cred.values['endpoint-url'] ?? '';
+    const apiFormat = cred.values['api-format'];
+    const modelName = cred.values['model-name'] ?? '';
+    const displayName = cred.values['display-name'];
+
+    return {
+      name: OpenClawBackendClient.CUSTOM_LLM_NAME,
+      baseUrl: endpointUrl,
+      api: apiFormat !== 'openai-completions' ? apiFormat : undefined,
+      credentialRef: OpenClawBackendClient.CUSTOM_LLM_NAME,
+      models: [
+        {
+          name: modelName,
+          alias: displayName || undefined,
+        },
+      ],
+    };
+  }
+
+  private static resolveWebSearchProvider(
+    credentials: AddedCredential[],
+  ): string | undefined {
+    const hasStandardProvider = credentials.some(
+      c => c.provider.id !== 'custom',
+    );
+    if (!hasStandardProvider) return undefined;
+
+    const hasGoogleApiKey = credentials.some(
+      c =>
+        c.provider.provider === 'google' && c.provider.credentialType !== 'gcp',
+    );
+    return hasGoogleApiKey ? 'gemini' : 'duckduckgo';
+  }
+
+  private async createOrUpdateSecret(
+    basePath: string,
+    name: string,
+    body: string,
+  ): Promise<void> {
+    const response = await this.secureFetchApi.fetch(basePath, {
+      method: 'POST',
+      body,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (response.ok) return;
+
+    if (response.status === 409) {
+      const updateResponse = await this.secureFetchApi.fetch(
+        `${basePath}/${name}`,
+        {
+          method: 'PUT',
+          body,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+      if (!updateResponse.ok) {
+        const error = await updateResponse.json();
+        throw new Error(errorMessage(error));
+      }
+      return;
+    }
+
+    const error = await response.json();
+    throw new Error(errorMessage(error));
+  }
+
   createOpenClaw = async (
     namespace: string,
-    apiKeyValue: string,
+    credentials: AddedCredential[],
     disableDevicePairing: boolean,
   ): Promise<void> => {
     const kubeApi = this.kubeAPI;
-    // create secret for api key
-    const secretName = `gemini-api-key`;
-    const secretUrl = `/api/v1/namespaces/${namespace}/secrets`;
-    const secretResponse = await this.secureFetchApi.fetch(
-      `${kubeApi}${secretUrl}`,
-      {
-        method: 'POST',
-        body: newOpenClawAPIKeySecretObject(namespace, secretName, apiKeyValue),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      },
-    );
-    if (!secretResponse.ok && secretResponse.status !== 409) {
-      const error = await secretResponse.json();
-      throw new Error(errorMessage(error));
-    }
-    // create claw cr
-    const clawUrl = `/apis/claw.sandbox.redhat.com/v1alpha1/namespaces/${namespace}/claws`;
-    const clawResponse = await this.secureFetchApi.fetch(
-      `${kubeApi}${clawUrl}`,
-      {
-        method: 'POST',
-        body: newOpenClawObject(
-          namespace,
-          clawName,
-          secretName,
-          disableDevicePairing,
-        ),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      },
-    );
+    const secretsBasePath = `${kubeApi}/api/v1/namespaces/${namespace}/secrets`;
+    const secretName = 'llm-key';
+    const createdSecrets: string[] = [];
 
-    if (!clawResponse.ok && clawResponse.status !== 409) {
-      const error = await clawResponse.json();
-      throw new Error(errorMessage(error));
+    const mergedSecretData: Record<string, string> = {};
+    for (const cred of credentials) {
+      const data = OpenClawBackendClient.buildSecretData(cred);
+      Object.assign(mergedSecretData, data);
+    }
+
+    if (Object.keys(mergedSecretData).length > 0) {
+      const secretBody = newOpenClawSecretObject(
+        namespace,
+        secretName,
+        mergedSecretData,
+      );
+      await this.createOrUpdateSecret(secretsBasePath, secretName, secretBody);
+      createdSecrets.push(secretName);
+    }
+
+    try {
+      const credentialInputs: OpenClawCredentialInput[] = credentials.map(
+        cred => OpenClawBackendClient.buildCredentialInput(cred, secretName),
+      );
+
+      const customProviders: OpenClawCustomProviderInput[] = credentials
+        .map(cred => OpenClawBackendClient.buildCustomProvider(cred))
+        .filter((cp): cp is OpenClawCustomProviderInput => cp !== undefined);
+
+      const webSearchProvider =
+        OpenClawBackendClient.resolveWebSearchProvider(credentials);
+
+      const clawUrl = `/apis/claw.sandbox.redhat.com/v1alpha1/namespaces/${namespace}/claws`;
+      const clawResponse = await this.secureFetchApi.fetch(
+        `${kubeApi}${clawUrl}`,
+        {
+          method: 'POST',
+          body: newOpenClawObject({
+            namespace,
+            name: OpenClawBackendClient.CLAW_NAME,
+            credentials: credentialInputs,
+            disableDevicePairing,
+            customProviders:
+              customProviders.length > 0 ? customProviders : undefined,
+            webSearchProvider,
+          }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      if (!clawResponse.ok && clawResponse.status !== 409) {
+        const error = await clawResponse.json();
+        throw new Error(errorMessage(error));
+      }
+    } catch (err) {
+      for (const name of createdSecrets) {
+        try {
+          await this.secureFetchApi.fetch(`${secretsBasePath}/${name}`, {
+            method: 'DELETE',
+          });
+        } catch {
+          // Best-effort cleanup; don't shadow the original error
+        }
+      }
+      throw err;
     }
   };
 
   unIdleOpenClaw = async (namespace: string): Promise<void> => {
     const kubeApi = this.kubeAPI;
-    const clawUrl = `/apis/claw.sandbox.redhat.com/v1alpha1/namespaces/${namespace}/claws/${clawName}`;
+    const clawUrl = `/apis/claw.sandbox.redhat.com/v1alpha1/namespaces/${namespace}/claws/${OpenClawBackendClient.CLAW_NAME}`;
     const response = await this.secureFetchApi.fetch(`${kubeApi}${clawUrl}`, {
       method: 'PATCH',
       body: JSON.stringify({
@@ -195,7 +379,17 @@ export class OpenClawBackendClient implements OpenClawService {
 
   deleteOpenClawCR = async (namespace: string): Promise<void> => {
     const kubeApi = this.kubeAPI;
-    const clawUrl = `/apis/claw.sandbox.redhat.com/v1alpha1/namespaces/${namespace}/claws/${clawName}`;
+
+    const clawData = await this.getOpenClaw(namespace);
+    const secretNames = new Set<string>();
+    if (clawData?.spec?.credentials) {
+      for (const cred of clawData.spec.credentials) {
+        for (const ref of cred.secretRef) {
+          secretNames.add(ref.name);
+        }
+      }
+    }
+    const clawUrl = `/apis/claw.sandbox.redhat.com/v1alpha1/namespaces/${namespace}/claws/${OpenClawBackendClient.CLAW_NAME}`;
     const clawResponse = await this.secureFetchApi.fetch(
       `${kubeApi}${clawUrl}`,
       {
@@ -208,17 +402,19 @@ export class OpenClawBackendClient implements OpenClawService {
       throw new Error(errorMessage(error));
     }
 
-    const secretUrl = `/api/v1/namespaces/${namespace}/secrets/gemini-api-key`;
-    const secretResponse = await this.secureFetchApi.fetch(
-      `${kubeApi}${secretUrl}`,
-      {
-        method: 'DELETE',
-      },
-    );
+    for (const name of secretNames) {
+      const secretUrl = `/api/v1/namespaces/${namespace}/secrets/${name}`;
+      const secretResponse = await this.secureFetchApi.fetch(
+        `${kubeApi}${secretUrl}`,
+        {
+          method: 'DELETE',
+        },
+      );
 
-    if (!secretResponse.ok && secretResponse.status !== 404) {
-      const error = await secretResponse.json();
-      throw new Error(errorMessage(error));
+      if (!secretResponse.ok && secretResponse.status !== 404) {
+        const error = await secretResponse.json();
+        throw new Error(errorMessage(error));
+      }
     }
   };
 }

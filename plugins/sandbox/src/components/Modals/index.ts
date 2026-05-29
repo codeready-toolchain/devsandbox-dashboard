@@ -20,4 +20,7 @@ export { default as PhoneVerificationModal } from './PhoneVerificationModal';
 export { default as AnsibleDeleteInstanceModal } from './AnsibleDeleteInstanceModal';
 export { default as OpenClawLaunchInfoModal } from './OpenClawLaunchInfoModal';
 export { default as OpenClawDeleteInstanceModal } from './OpenClawDeleteInstanceModal';
+export { ProviderCredentialForm } from './ProviderCredentialForm';
+export { CredentialList } from './CredentialList';
+export type { AddedCredential } from '../../utils/openclaw-providers';
 export { DeleteInstanceModal } from './DeleteInstanceModal';

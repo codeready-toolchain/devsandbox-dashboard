@@ -23,6 +23,7 @@ import React, {
   useState,
 } from 'react';
 import { AAPData, OpenClawItem, SignupData } from '../types';
+import { AddedCredential } from '../utils/openclaw-providers';
 import { useApi, configApiRef } from '@backstage/core-plugin-api';
 import { aapApiRef, kubeApiRef, openclawApiRef, registerApiRef } from '../api';
 import { useRecaptcha } from './useRecaptcha';
@@ -37,15 +38,21 @@ import {
   getSpaceRequestNamespace,
 } from '../utils/openclaw-utils';
 
-interface OpenClawDataResult {
-  status: OpenClawStatus;
-  namespace: string | undefined;
-}
 import { errorMessage } from '../utils/common';
 import {
   useSegmentAnalytics,
   SegmentTrackingData,
 } from '../utils/segment-analytics';
+
+interface AAPDataResult {
+  status: AnsibleStatus;
+  data: AAPData | undefined;
+}
+
+interface OpenClawDataResult {
+  status: OpenClawStatus;
+  namespace: string | undefined;
+}
 
 interface SandboxContextType {
   userStatus: string;
@@ -71,9 +78,9 @@ interface SandboxContextType {
   openclawUILink: string | undefined;
   handleOpenClawInstance: (
     userNamespace: string,
-    apiKeyValue?: string,
+    credentials?: AddedCredential[],
     disableDevicePairing?: boolean,
-  ) => void;
+  ) => Promise<boolean>;
   deleteOpenClaw: (userNamespace: string) => Promise<void>;
   refetchOpenClaw: (userNamespace: string) => Promise<OpenClawDataResult>;
   segmentTrackClick?: (data: SegmentTrackingData) => Promise<void>;
@@ -129,9 +136,10 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   const [ansibleError, setAnsibleError] = useState<string | null>(null);
 
   const [clawNamespace, setClawNamespace] = useState<string | undefined>();
-  const pendingApiKey = useRef<string | undefined>(undefined);
+  const pendingCredentials = useRef<AddedCredential[] | undefined>(undefined);
   const pendingDisableDevicePairing = useRef<boolean>(false);
   const creatingSpaceRequest = useRef(false);
+  const creatingOpenClaw = useRef(false);
   const [openclawData, setOpenclawData] = useState<OpenClawItem | undefined>();
   const [openclawStatus, setOpenclawStatus] = useState<OpenClawStatus>(
     OpenClawStatus.NEW,
@@ -192,7 +200,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const getAAPData = async (userNamespace: string) => {
+  const getAAPData = async (userNamespace: string): Promise<AAPDataResult> => {
     try {
       const data = await aapApi.getAAP(userNamespace);
       setAnsibleData(data);
@@ -215,25 +223,29 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
           }
         }
       }
+      return { status: st, data };
     } catch (e) {
       setAnsibleError(errorMessage(e));
+      return { status: AnsibleStatus.UNKNOWN, data: undefined };
     }
   };
 
   const handleAAPInstance = async (userNamespace: string) => {
-    await getAAPData(userNamespace);
+    const { status: currentStatus, data: currentData } = await getAAPData(
+      userNamespace,
+    );
 
     if (
-      ansibleStatus === AnsibleStatus.PROVISIONING ||
-      ansibleStatus === AnsibleStatus.READY
+      currentStatus === AnsibleStatus.PROVISIONING ||
+      currentStatus === AnsibleStatus.READY
     ) {
       return;
     }
 
     if (
-      ansibleStatus === AnsibleStatus.IDLED &&
-      ansibleData &&
-      ansibleData?.items?.length > 0
+      currentStatus === AnsibleStatus.IDLED &&
+      currentData &&
+      currentData?.items?.length > 0
     ) {
       try {
         await aapApi.unIdleAAP(userNamespace);
@@ -251,14 +263,33 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  // Polls the current OpenClaw provisioning state for the user. This function
+  // is called on an interval, so every branch must be idempotent and guard
+  // against concurrent in-flight mutations (see creatingSpaceRequest /
+  // creatingOpenClaw refs). The overall flow is:
+  //
+  //   1. Fetch the SpaceRequest — if none exists yet and the user has submitted
+  //      credentials, kick off creation. Otherwise report NEW.
+  //   2. If the SpaceRequest is terminating or hasn't been assigned a namespace
+  //      yet, report the corresponding transient status.
+  //   3. Once a target namespace is known, fetch the OpenClaw resource inside
+  //      it. If it doesn't exist and credentials are pending, create it.
+  //   4. Derive the final status from the OpenClaw ready-condition and, when
+  //      available, build the UI link (with device-pairing path if enabled).
+  //   5. Edge case: if the OpenClaw status is unknown but the SpaceRequest
+  //      itself is ready, treat it as still provisioning so the UI keeps
+  //      polling rather than showing an error.
   const getOpenClawData = async (
     userNamespace: string,
   ): Promise<OpenClawDataResult> => {
     try {
+      // Step 1 — resolve the SpaceRequest
       const sr = await openclawApi.getSpaceRequest(userNamespace);
 
       if (!sr) {
-        if (pendingApiKey.current && !creatingSpaceRequest.current) {
+        // No SpaceRequest yet: if credentials were submitted, create one
+        // (guarded to prevent duplicate calls from concurrent polls).
+        if (pendingCredentials.current && !creatingSpaceRequest.current) {
           creatingSpaceRequest.current = true;
           try {
             await openclawApi.createSpaceRequest(userNamespace);
@@ -268,7 +299,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
               namespace: undefined,
             };
           } catch (e) {
-            pendingApiKey.current = undefined;
+            pendingCredentials.current = undefined;
             setOpenclawError(errorMessage(e));
             setOpenclawStatus(OpenClawStatus.NEW);
             return { status: OpenClawStatus.NEW, namespace: undefined };
@@ -280,6 +311,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
         return { status: OpenClawStatus.NEW, namespace: undefined };
       }
 
+      // Step 2 — handle transient SpaceRequest states
       if (isSpaceRequestTerminating(sr)) {
         setOpenclawStatus(OpenClawStatus.TERMINATING);
         return { status: OpenClawStatus.TERMINATING, namespace: undefined };
@@ -287,26 +319,31 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
 
       const targetNamespace = getSpaceRequestNamespace(sr);
       if (!targetNamespace) {
+        // SpaceRequest exists but hasn't been assigned a namespace yet
         setOpenclawStatus(OpenClawStatus.PROVISIONING);
         return { status: OpenClawStatus.PROVISIONING, namespace: undefined };
       }
 
       setClawNamespace(targetNamespace);
 
+      // Step 3 — fetch (or create) the OpenClaw resource
       const data = await openclawApi.getOpenClaw(targetNamespace);
       setOpenclawData(data);
 
-      if (!data && pendingApiKey.current) {
-        const apiKey = pendingApiKey.current;
+      // OpenClaw doesn't exist yet: if credentials are pending, create it
+      // (guarded to prevent duplicate calls from concurrent polls).
+      if (!data && pendingCredentials.current && !creatingOpenClaw.current) {
+        creatingOpenClaw.current = true;
+        const credentials = pendingCredentials.current;
         const disableDevicePairing = pendingDisableDevicePairing.current;
-        pendingApiKey.current = undefined;
-        pendingDisableDevicePairing.current = false;
         try {
           await openclawApi.createOpenClaw(
             targetNamespace,
-            apiKey,
+            credentials,
             disableDevicePairing,
           );
+          pendingCredentials.current = undefined;
+          pendingDisableDevicePairing.current = false;
           setOpenclawStatus(OpenClawStatus.PROVISIONING);
           return {
             status: OpenClawStatus.PROVISIONING,
@@ -316,22 +353,31 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
           setOpenclawError(errorMessage(e));
           setOpenclawStatus(OpenClawStatus.UNKNOWN);
           return { status: OpenClawStatus.UNKNOWN, namespace: targetNamespace };
+        } finally {
+          creatingOpenClaw.current = false;
         }
       }
 
+      // Step 4 — derive status and build the UI link
       const st = getOpenClawReadyCondition(data, setOpenclawError);
       setOpenclawStatus(st);
       if (data?.status?.url) {
-        const url = new URL(data.status.url);
-        if (!data.spec?.auth?.disableDevicePairing) {
-          url.pathname = `${url.pathname.replace(
-            /\/$/,
-            '',
-          )}/integration/device-pairing/`;
+        try {
+          const url = new URL(data.status.url);
+          if (!data.spec?.auth?.disableDevicePairing) {
+            url.pathname = `${url.pathname.replace(
+              /\/$/,
+              '',
+            )}/integration/device-pairing/`;
+          }
+          setOpenclawUILink(url.toString());
+        } catch {
+          setOpenclawUILink(data.status.url);
         }
-        setOpenclawUILink(url.toString());
       }
 
+      // Step 5 — if the OpenClaw status can't be determined yet but the
+      // SpaceRequest is ready, report PROVISIONING so we keep polling.
       if (st === OpenClawStatus.UNKNOWN && isSpaceRequestReady(sr)) {
         setOpenclawStatus(OpenClawStatus.PROVISIONING);
         return {
@@ -349,9 +395,9 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const handleOpenClawInstance = async (
     userNamespace: string,
-    apiKeyValue?: string,
+    credentials?: AddedCredential[],
     disableDevicePairing?: boolean,
-  ) => {
+  ): Promise<boolean> => {
     const { status: currentStatus, namespace: resolvedNamespace } =
       await getOpenClawData(userNamespace);
 
@@ -359,45 +405,48 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       currentStatus === OpenClawStatus.PROVISIONING ||
       currentStatus === OpenClawStatus.READY
     ) {
-      return;
+      return true;
     }
 
     if (currentStatus === OpenClawStatus.TERMINATING) {
-      if (!apiKeyValue) {
-        return;
+      if (!credentials || credentials.length === 0) {
+        return false;
       }
-      pendingApiKey.current = apiKeyValue;
+      pendingCredentials.current = credentials;
       pendingDisableDevicePairing.current = disableDevicePairing ?? false;
       setOpenclawStatus(OpenClawStatus.TERMINATING);
-      return;
+      return true;
     }
 
     if (currentStatus === OpenClawStatus.IDLED && resolvedNamespace) {
       try {
         await openclawApi.unIdleOpenClaw(resolvedNamespace);
         setOpenclawStatus(OpenClawStatus.PROVISIONING);
+        return true;
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error(e);
         setOpenclawError(errorMessage(e));
+        return false;
       }
-      return;
     }
 
-    if (!apiKeyValue) {
-      return;
+    if (!credentials || credentials.length === 0) {
+      return false;
     }
 
     try {
-      pendingApiKey.current = apiKeyValue;
+      pendingCredentials.current = credentials;
       pendingDisableDevicePairing.current = disableDevicePairing ?? false;
       await openclawApi.createSpaceRequest(userNamespace);
       setOpenclawStatus(OpenClawStatus.PROVISIONING);
+      return true;
     } catch (e) {
-      pendingApiKey.current = undefined;
+      pendingCredentials.current = undefined;
       setOpenclawError(errorMessage(e));
       // eslint-disable-next-line no-console
       console.error(e);
+      return false;
     }
   };
 

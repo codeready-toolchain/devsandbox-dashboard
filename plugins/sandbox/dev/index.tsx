@@ -17,16 +17,30 @@ import React from 'react';
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import StarOutlineOutlinedIcon from '@mui/icons-material/StarOutlineOutlined';
 import { createDevApp } from '@backstage/dev-utils';
+import { createApiFactory } from '@backstage/core-plugin-api';
 import { getAllThemes } from '@red-hat-developer-hub/backstage-plugin-theme';
 import {
   sandboxPlugin,
   SandboxPage,
   SandboxActivitiesPage,
 } from '../src/plugin';
+import { secureFetchApiRef, SecureFetchApi } from '../src/api';
+
+const noAuthFetchClient: SecureFetchApi = {
+  fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+    window.fetch(input, init),
+};
 
 createDevApp()
   .registerPlugin(sandboxPlugin)
   .addThemes(getAllThemes())
+  .registerApi(
+    createApiFactory({
+      api: secureFetchApiRef,
+      deps: {},
+      factory: () => noAuthFetchClient,
+    }),
+  )
   .addPage({
     element: <SandboxPage />,
     title: 'Home',
