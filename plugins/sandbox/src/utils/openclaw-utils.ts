@@ -13,7 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { OpenClawItem, SpaceRequestItem } from '../types';
+import {
+  OpenClawCustomProvider,
+  OpenClawGcpConfig,
+  OpenClawItem,
+  SpaceRequestItem,
+} from '../types';
 import { isConditionTrue, isConditionFalse } from './condition-utils';
 
 export enum OpenClawStatus {
@@ -75,7 +80,7 @@ export const newSpaceRequestObject = (namespace: string): string =>
     apiVersion: 'toolchain.dev.openshift.com/v1alpha1',
     kind: 'SpaceRequest',
     metadata: {
-      namespace: namespace,
+      namespace,
       name: 'claw',
       labels: {
         'claw.sandbox.redhat.com/instance': 'claw',
@@ -115,46 +120,84 @@ export const getSpaceRequestNamespace = (
   return sr?.status?.namespaceAccess?.[0]?.name;
 };
 
+export type OpenClawCustomProviderInput = OpenClawCustomProvider;
+
 export type OpenClawCredentialInput = {
   name: string;
   type: string;
-  provider: string;
+  provider?: string;
+  domain?: string;
   secretName: string;
   secretKeys: string[];
+  gcp?: OpenClawGcpConfig;
 };
 
-export const newOpenClawObject = (
-  namespace: string,
-  name: string,
-  credentials: OpenClawCredentialInput[],
-  disableDevicePairing: boolean,
-): string =>
-  JSON.stringify({
-    apiVersion: 'claw.sandbox.redhat.com/v1alpha1',
-    kind: 'Claw',
-    metadata: {
-      namespace: namespace,
-      name: name,
-      labels: {
-        'app.kubernetes.io/name': 'claw',
-        'claw.sandbox.redhat.com/instance': name,
-      },
-    },
-    spec: {
-      credentials: credentials.map(cred => ({
+export type NewOpenClawObjectOptions = {
+  namespace: string;
+  name: string;
+  credentials: OpenClawCredentialInput[];
+  disableDevicePairing: boolean;
+  customProviders?: OpenClawCustomProviderInput[];
+  webSearchProvider?: string;
+};
+
+export const newOpenClawObject = (opts: NewOpenClawObjectOptions): string => {
+  const {
+    namespace,
+    name,
+    credentials,
+    disableDevicePairing,
+    customProviders,
+    webSearchProvider,
+  } = opts;
+  const spec: Record<string, unknown> = {
+    credentials: credentials.map(cred => {
+      const entry: Record<string, unknown> = {
         name: cred.name,
         type: cred.type,
         secretRef: cred.secretKeys.map(key => ({
           name: cred.secretName,
           key,
         })),
-        provider: cred.provider,
-      })),
-      auth: {
-        disableDevicePairing: disableDevicePairing,
+      };
+      if (cred.provider) {
+        entry.provider = cred.provider;
+      }
+      if (cred.domain) {
+        entry.domain = cred.domain;
+      }
+      if (cred.gcp) {
+        entry.gcp = cred.gcp;
+      }
+      return entry;
+    }),
+    auth: {
+      disableDevicePairing,
+    },
+  };
+
+  if (customProviders?.length) {
+    spec.customProviders = customProviders;
+  }
+
+  if (webSearchProvider) {
+    spec.webSearch = { provider: webSearchProvider };
+  }
+
+  return JSON.stringify({
+    apiVersion: 'claw.sandbox.redhat.com/v1alpha1',
+    kind: 'Claw',
+    metadata: {
+      namespace,
+      name,
+      labels: {
+        'app.kubernetes.io/name': 'claw',
+        'claw.sandbox.redhat.com/instance': name,
       },
     },
+    spec,
   });
+};
 
 export const newOpenClawSecretObject = (
   namespace: string,
@@ -166,8 +209,8 @@ export const newOpenClawSecretObject = (
     apiVersion: 'v1',
     kind: 'Secret',
     metadata: {
-      namespace: namespace,
-      name: name,
+      namespace,
+      name,
       labels: {
         'app.kubernetes.io/name': 'claw',
         'claw.sandbox.redhat.com/instance': instanceName,

@@ -140,11 +140,11 @@ describe('OpenClawLaunchInfoModal', () => {
     renderModal();
 
     const autocomplete = screen.getByLabelText(/Search providers/i);
-    fireEvent.change(autocomplete, { target: { value: 'OpenAI' } });
+    fireEvent.change(autocomplete, { target: { value: 'Google Gemini' } });
     fireEvent.keyDown(autocomplete, { key: 'ArrowDown' });
     fireEvent.keyDown(autocomplete, { key: 'Enter' });
 
-    expect(await screen.findByText('OpenAI')).toBeInTheDocument();
+    expect(await screen.findByText('Google Gemini')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /Add Credential/i }),
     ).toBeInTheDocument();

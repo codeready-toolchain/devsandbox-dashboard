@@ -94,9 +94,25 @@ export const OpenClawLaunchInfoModal: React.FC<
     const newErrors: Record<string, boolean> = {};
     let hasError = false;
     for (const field of selectedProvider.fields) {
-      if (field.required && !fieldValues[field.key]?.trim()) {
+      const value = fieldValues[field.key]?.trim();
+
+      if (field.required && !value) {
         newErrors[field.key] = true;
         hasError = true;
+      } else if (field.type === 'serviceAccountJson' && value) {
+        try {
+          const parsed = JSON.parse(value);
+          if (
+            parsed.type !== 'service_account' &&
+            parsed.type !== 'authorized_user'
+          ) {
+            newErrors[field.key] = true;
+            hasError = true;
+          }
+        } catch {
+          newErrors[field.key] = true;
+          hasError = true;
+        }
       }
     }
 
@@ -453,7 +469,15 @@ export const OpenClawLaunchInfoModal: React.FC<
           value={selectedProvider}
           onChange={(_, newValue) => {
             setSelectedProvider(newValue);
-            setFieldValues({});
+            const defaults: Record<string, string> = {};
+            if (newValue) {
+              for (const field of newValue.fields) {
+                if (field.defaultValue) {
+                  defaults[field.key] = field.defaultValue;
+                }
+              }
+            }
+            setFieldValues(defaults);
             setFieldErrors({});
           }}
           getOptionLabel={option => option.name}

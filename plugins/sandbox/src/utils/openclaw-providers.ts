@@ -14,7 +14,12 @@
  * limitations under the License.
  */
 
-export type CredentialFieldType = 'apiKey' | 'serviceAccountJson' | 'text';
+export type CredentialFieldType =
+  | 'apiKey'
+  | 'serviceAccountJson'
+  | 'text'
+  | 'select'
+  | 'combobox';
 
 export type ProviderCredentialField = {
   key: string;
@@ -23,15 +28,22 @@ export type ProviderCredentialField = {
   required: boolean;
   placeholder?: string;
   multiline?: boolean;
+  options?: string[];
+  defaultValue?: string;
 };
 
-export type ProviderCategory = 'cloud' | 'gateway';
+export type CredentialType = 'apiKey' | 'bearer' | 'gcp' | 'none';
+
+export type ProviderCategory = 'primary' | 'advanced' | 'custom';
 
 export type ProviderConfig = {
   id: string;
   name: string;
   provider: string;
   category: ProviderCategory;
+  credentialType: CredentialType;
+  domain?: string;
+  keyUrl?: string;
   fields: ProviderCredentialField[];
 };
 
@@ -43,80 +55,165 @@ const apiKeyField = (placeholder?: string): ProviderCredentialField => ({
   placeholder: placeholder ?? 'Enter your API key',
 });
 
+const gcpFields = (
+  defaultRegion: string,
+  regionSuggestions: string[],
+): ProviderCredentialField[] => [
+  {
+    key: 'sa-key.json',
+    label: 'Service Account Key',
+    type: 'serviceAccountJson',
+    required: true,
+    placeholder: 'Paste your service account JSON key',
+    multiline: true,
+  },
+  {
+    key: 'project-id',
+    label: 'GCP Project ID',
+    type: 'text',
+    required: true,
+    placeholder: 'e.g., my-project-123',
+  },
+  {
+    key: 'region',
+    label: 'Region',
+    type: 'combobox',
+    required: true,
+    placeholder: defaultRegion,
+    defaultValue: defaultRegion,
+    options: regionSuggestions,
+  },
+];
+
 export const PROVIDERS: ProviderConfig[] = [
-  // Cloud providers
+  // Tier 1 — Primary options
+  {
+    id: 'gemini',
+    name: 'Google Gemini',
+    provider: 'google',
+    category: 'primary',
+    credentialType: 'apiKey',
+    keyUrl: 'https://aistudio.google.com/apikey',
+    fields: [apiKeyField()],
+  },
+  {
+    id: 'anthropic',
+    name: 'Anthropic Claude',
+    provider: 'anthropic',
+    category: 'primary',
+    credentialType: 'apiKey',
+    keyUrl: 'https://console.anthropic.com/settings/keys',
+    fields: [apiKeyField('sk-ant-...')],
+  },
   {
     id: 'openai',
     name: 'OpenAI',
     provider: 'openai',
-    category: 'cloud',
+    category: 'primary',
+    credentialType: 'bearer',
+    domain: 'api.openai.com',
+    keyUrl: 'https://platform.openai.com/api-keys',
     fields: [apiKeyField('sk-...')],
-  },
-  {
-    id: 'anthropic',
-    name: 'Anthropic',
-    provider: 'anthropic',
-    category: 'cloud',
-    fields: [apiKeyField('sk-ant-...')],
   },
   {
     id: 'xai',
     name: 'xAI (Grok)',
     provider: 'xai',
-    category: 'cloud',
+    category: 'primary',
+    credentialType: 'bearer',
+    domain: 'api.x.ai',
+    keyUrl: 'https://console.x.ai/',
     fields: [apiKeyField()],
-  },
-  {
-    id: 'gemini',
-    name: 'Google Gemini',
-    provider: 'google',
-    category: 'cloud',
-    fields: [apiKeyField()],
-  },
-  {
-    id: 'google-vertex',
-    name: 'Google Vertex',
-    provider: 'google-vertex',
-    category: 'cloud',
-    fields: [
-      {
-        key: 'service-account-json',
-        label: 'Service Account JSON',
-        type: 'serviceAccountJson',
-        required: true,
-        placeholder: 'Paste your service account JSON key',
-        multiline: true,
-      },
-      {
-        key: 'project-id',
-        label: 'Project ID',
-        type: 'text',
-        required: true,
-        placeholder: 'my-gcp-project',
-      },
-      {
-        key: 'region',
-        label: 'Region',
-        type: 'text',
-        required: true,
-        placeholder: 'us-central1',
-      },
-    ],
   },
 
-  // Gateways & routers
+  // Tier 2 — Advanced options
   {
     id: 'openrouter',
     name: 'OpenRouter',
     provider: 'openrouter',
-    category: 'gateway',
+    category: 'advanced',
+    credentialType: 'bearer',
+    domain: 'openrouter.ai',
+    keyUrl: 'https://openrouter.ai/keys',
     fields: [apiKeyField()],
+  },
+  {
+    id: 'google-vertex',
+    name: 'Google Vertex AI',
+    provider: 'google',
+    category: 'advanced',
+    credentialType: 'gcp',
+    keyUrl: 'https://console.cloud.google.com/iam-admin/serviceaccounts',
+    fields: gcpFields('us-central1', [
+      'global',
+      'us-central1',
+      'us-east4',
+      'europe-west1',
+      'asia-northeast1',
+    ]),
+  },
+  {
+    id: 'anthropic-vertex',
+    name: 'Anthropic Claude via Vertex AI',
+    provider: 'anthropic',
+    category: 'advanced',
+    credentialType: 'gcp',
+    keyUrl: 'https://console.cloud.google.com/vertex-ai/publishers/anthropic',
+    fields: gcpFields('us-east5', ['us-east5', 'europe-west1', 'europe-west4']),
+  },
+
+  // Custom / Self-Hosted
+  {
+    id: 'custom',
+    name: 'Custom / Self-Hosted',
+    provider: '',
+    category: 'custom',
+    credentialType: 'bearer',
+    fields: [
+      {
+        key: 'endpoint-url',
+        label: 'Endpoint URL',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., https://llm.mycompany.com/v1',
+      },
+      {
+        key: 'api-format',
+        label: 'API Format',
+        type: 'select',
+        required: true,
+        defaultValue: 'openai-completions',
+        options: ['openai-completions', 'openai-responses', 'ollama'],
+      },
+      {
+        key: 'api-key',
+        label: 'API Key',
+        type: 'apiKey',
+        required: false,
+        placeholder: 'Leave blank if no authentication is required',
+      },
+      {
+        key: 'model-name',
+        label: 'Model Name',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., qwen3-14b, llama-4-scout',
+      },
+      {
+        key: 'display-name',
+        label: 'Display Name',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., Qwen 3 14B',
+      },
+    ],
   },
 ];
 
 export const CATEGORY_LABELS: Record<ProviderCategory, string> = {
-  cloud: 'Cloud Providers',
-  gateway: 'Gateways & Routers',
+  primary: 'Primary',
+  advanced: 'Advanced',
+  custom: 'Custom',
 };
 
 export type AddedCredential = {

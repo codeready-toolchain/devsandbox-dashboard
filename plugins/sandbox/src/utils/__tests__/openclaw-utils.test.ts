@@ -22,19 +22,24 @@ import {
 
 describe('openclaw-utils', () => {
   describe('newOpenClawObject', () => {
-    it('creates a Claw CR with a single credential', () => {
+    it('creates a Claw CR with a Gemini apiKey credential', () => {
       const credentials: OpenClawCredentialInput[] = [
         {
           name: 'gemini',
           type: 'apiKey',
           provider: 'google',
-          secretName: 'gemini-api-key',
+          secretName: 'llm-key',
           secretKeys: ['api-key'],
         },
       ];
 
       const result = JSON.parse(
-        newOpenClawObject('test-ns', 'claw', credentials, false),
+        newOpenClawObject({
+          namespace: 'test-ns',
+          name: 'claw',
+          credentials,
+          disableDevicePairing: false,
+        }),
       );
 
       expect(result.apiVersion).toBe('claw.sandbox.redhat.com/v1alpha1');
@@ -45,52 +50,145 @@ describe('openclaw-utils', () => {
       expect(result.spec.credentials[0]).toEqual({
         name: 'gemini',
         type: 'apiKey',
-        secretRef: [{ name: 'gemini-api-key', key: 'api-key' }],
+        secretRef: [{ name: 'llm-key', key: 'api-key' }],
         provider: 'google',
       });
       expect(result.spec.auth.disableDevicePairing).toBe(false);
     });
 
-    it('creates a Claw CR with multiple credentials', () => {
+    it('creates a Claw CR with bearer credential including domain', () => {
       const credentials: OpenClawCredentialInput[] = [
         {
           name: 'openai',
-          type: 'apiKey',
+          type: 'bearer',
           provider: 'openai',
-          secretName: 'openai-api-key',
+          domain: 'api.openai.com',
+          secretName: 'llm-key',
           secretKeys: ['api-key'],
-        },
-        {
-          name: 'google-vertex',
-          type: 'composite',
-          provider: 'google-vertex',
-          secretName: 'google-vertex-api-key',
-          secretKeys: ['service-account-json', 'project-id', 'region'],
         },
       ];
 
       const result = JSON.parse(
-        newOpenClawObject('test-ns', 'claw', credentials, true),
+        newOpenClawObject({
+          namespace: 'test-ns',
+          name: 'claw',
+          credentials,
+          disableDevicePairing: false,
+        }),
       );
 
-      expect(result.spec.credentials).toHaveLength(2);
-      expect(result.spec.credentials[0].name).toBe('openai');
-      expect(result.spec.credentials[0].secretRef).toHaveLength(1);
+      expect(result.spec.credentials[0]).toEqual({
+        name: 'openai',
+        type: 'bearer',
+        secretRef: [{ name: 'llm-key', key: 'api-key' }],
+        provider: 'openai',
+        domain: 'api.openai.com',
+      });
+    });
 
-      expect(result.spec.credentials[1].name).toBe('google-vertex');
-      expect(result.spec.credentials[1].secretRef).toHaveLength(3);
-      expect(result.spec.credentials[1].secretRef).toEqual([
-        { name: 'google-vertex-api-key', key: 'service-account-json' },
-        { name: 'google-vertex-api-key', key: 'project-id' },
-        { name: 'google-vertex-api-key', key: 'region' },
+    it('creates a Claw CR with gcp credential including gcp block', () => {
+      const credentials: OpenClawCredentialInput[] = [
+        {
+          name: 'gemini',
+          type: 'gcp',
+          provider: 'google',
+          secretName: 'llm-key',
+          secretKeys: ['sa-key.json'],
+          gcp: { project: 'my-project-123', location: 'us-central1' },
+        },
+      ];
+
+      const result = JSON.parse(
+        newOpenClawObject({
+          namespace: 'test-ns',
+          name: 'claw',
+          credentials,
+          disableDevicePairing: false,
+        }),
+      );
+
+      expect(result.spec.credentials[0].type).toBe('gcp');
+      expect(result.spec.credentials[0].gcp).toEqual({
+        project: 'my-project-123',
+        location: 'us-central1',
+      });
+      expect(result.spec.credentials[0].secretRef).toEqual([
+        { name: 'llm-key', key: 'sa-key.json' },
       ]);
+    });
 
-      expect(result.spec.auth.disableDevicePairing).toBe(true);
+    it('includes customProviders when provided', () => {
+      const result = JSON.parse(
+        newOpenClawObject({
+          namespace: 'ns',
+          name: 'claw',
+          credentials: [],
+          disableDevicePairing: false,
+          customProviders: [
+            {
+              name: 'custom-llm',
+              baseUrl: 'https://llm.mycompany.com/v1',
+              credentialRef: 'custom-llm',
+              models: [{ name: 'qwen3-14b', alias: 'Qwen 3 14B' }],
+            },
+          ],
+        }),
+      );
+
+      expect(result.spec.customProviders).toHaveLength(1);
+      expect(result.spec.customProviders[0].baseUrl).toBe(
+        'https://llm.mycompany.com/v1',
+      );
+    });
+
+    it('includes webSearch provider when provided', () => {
+      const result = JSON.parse(
+        newOpenClawObject({
+          namespace: 'ns',
+          name: 'claw',
+          credentials: [],
+          disableDevicePairing: false,
+          webSearchProvider: 'duckduckgo',
+        }),
+      );
+
+      expect(result.spec.webSearch).toEqual({ provider: 'duckduckgo' });
     });
 
     it('sets disableDevicePairing correctly', () => {
-      const result = JSON.parse(newOpenClawObject('ns', 'claw', [], true));
+      const result = JSON.parse(
+        newOpenClawObject({
+          namespace: 'ns',
+          name: 'claw',
+          credentials: [],
+          disableDevicePairing: true,
+        }),
+      );
       expect(result.spec.auth.disableDevicePairing).toBe(true);
+    });
+
+    it('omits domain and gcp when not provided', () => {
+      const credentials: OpenClawCredentialInput[] = [
+        {
+          name: 'gemini',
+          type: 'apiKey',
+          provider: 'google',
+          secretName: 'llm-key',
+          secretKeys: ['api-key'],
+        },
+      ];
+
+      const result = JSON.parse(
+        newOpenClawObject({
+          namespace: 'ns',
+          name: 'claw',
+          credentials,
+          disableDevicePairing: false,
+        }),
+      );
+
+      expect(result.spec.credentials[0]).not.toHaveProperty('domain');
+      expect(result.spec.credentials[0]).not.toHaveProperty('gcp');
     });
   });
 

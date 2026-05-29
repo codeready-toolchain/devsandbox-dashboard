@@ -50,31 +50,72 @@ describe('openclaw-providers', () => {
     expect(getProviderById('nonexistent')).toBeUndefined();
   });
 
-  it('Google Vertex has service-account-json, project-id, and region fields', () => {
+  it('lists Google Gemini first', () => {
+    expect(PROVIDERS[0].id).toBe('gemini');
+  });
+
+  it('Google Vertex has sa-key.json, project-id, and region fields', () => {
     const vertex = getProviderById('google-vertex');
     expect(vertex).toBeDefined();
     expect(vertex?.fields).toHaveLength(3);
+    expect(vertex?.credentialType).toBe('gcp');
+    expect(vertex?.provider).toBe('google');
 
     const fieldKeys = (vertex?.fields ?? []).map(f => f.key);
-    expect(fieldKeys).toContain('service-account-json');
+    expect(fieldKeys).toContain('sa-key.json');
     expect(fieldKeys).toContain('project-id');
     expect(fieldKeys).toContain('region');
   });
 
-  it('includes all cloud providers', () => {
-    const cloudIds = PROVIDERS.filter(p => p.category === 'cloud').map(
-      p => p.id,
-    );
-    expect(cloudIds).toContain('openai');
-    expect(cloudIds).toContain('anthropic');
-    expect(cloudIds).toContain('gemini');
-    expect(cloudIds).toContain('xai');
-    expect(cloudIds).toContain('google-vertex');
+  it('includes Anthropic via Vertex AI', () => {
+    const anthropicVertex = getProviderById('anthropic-vertex');
+    expect(anthropicVertex).toBeDefined();
+    expect(anthropicVertex?.credentialType).toBe('gcp');
+    expect(anthropicVertex?.provider).toBe('anthropic');
   });
 
-  it('includes openrouter in gateways', () => {
+  it('includes Custom / Self-Hosted provider', () => {
+    const custom = getProviderById('custom');
+    expect(custom).toBeDefined();
+    expect(custom?.fields).toHaveLength(5);
+
+    const fieldKeys = (custom?.fields ?? []).map(f => f.key);
+    expect(fieldKeys).toContain('endpoint-url');
+    expect(fieldKeys).toContain('api-format');
+    expect(fieldKeys).toContain('api-key');
+    expect(fieldKeys).toContain('model-name');
+    expect(fieldKeys).toContain('display-name');
+  });
+
+  it('includes all primary providers', () => {
+    const primaryIds = PROVIDERS.filter(p => p.category === 'primary').map(
+      p => p.id,
+    );
+    expect(primaryIds).toContain('gemini');
+    expect(primaryIds).toContain('anthropic');
+    expect(primaryIds).toContain('openai');
+    expect(primaryIds).toContain('xai');
+  });
+
+  it('includes openrouter in advanced', () => {
     const openrouter = getProviderById('openrouter');
     expect(openrouter).toBeDefined();
-    expect(openrouter?.category).toBe('gateway');
+    expect(openrouter?.category).toBe('advanced');
+  });
+
+  it('sets correct credential types for bearer providers', () => {
+    for (const id of ['openai', 'xai', 'openrouter']) {
+      const provider = getProviderById(id);
+      expect(provider?.credentialType).toBe('bearer');
+      expect(provider?.domain).toBeDefined();
+    }
+  });
+
+  it('every provider has a keyUrl except custom', () => {
+    for (const provider of PROVIDERS) {
+      if (provider.id !== 'custom') {
+        expect(provider.keyUrl).toBeDefined();
+      }
+    }
   });
 });

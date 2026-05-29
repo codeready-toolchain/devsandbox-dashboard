@@ -34,10 +34,34 @@ export type OpenClawCredentialRef = {
   key: string;
 };
 
+export type OpenClawGcpConfig = {
+  project: string;
+  location: string;
+};
+
 export type OpenClawCredential = {
   name: string;
   type: string;
   secretRef: OpenClawCredentialRef[];
+  provider?: string;
+  domain?: string;
+  gcp?: OpenClawGcpConfig;
+};
+
+export type OpenClawCustomProviderModel = {
+  name: string;
+  alias?: string;
+};
+
+export type OpenClawCustomProvider = {
+  name: string;
+  baseUrl: string;
+  api?: string;
+  credentialRef: string;
+  models: OpenClawCustomProviderModel[];
+};
+
+export type OpenClawWebSearch = {
   provider: string;
 };
 
@@ -49,6 +73,8 @@ export type OpenClawItem = {
   };
   spec: {
     credentials?: OpenClawCredential[];
+    customProviders?: OpenClawCustomProvider[];
+    webSearch?: OpenClawWebSearch;
     idle?: boolean;
     auth?: {
       disableDevicePairing?: boolean;
