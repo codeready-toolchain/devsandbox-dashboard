@@ -269,7 +269,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       const sr = await openclawApi.getSpaceRequest(userNamespace);
 
       if (!sr) {
-        if (pendingApiKey.current && !creatingSpaceRequest.current) {
+        if (pendingCredentials.current && !creatingSpaceRequest.current) {
           creatingSpaceRequest.current = true;
           try {
             await openclawApi.createSpaceRequest(userNamespace);
@@ -279,7 +279,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
               namespace: undefined,
             };
           } catch (e) {
-            pendingApiKey.current = undefined;
+            pendingCredentials.current = undefined;
             setOpenclawError(errorMessage(e));
             setOpenclawStatus(OpenClawStatus.NEW);
             return { status: OpenClawStatus.NEW, namespace: undefined };
@@ -378,10 +378,10 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     if (currentStatus === OpenClawStatus.TERMINATING) {
-      if (!apiKeyValue) {
+      if (!credentials || credentials.length === 0) {
         return;
       }
-      pendingApiKey.current = apiKeyValue;
+      pendingCredentials.current = credentials;
       pendingDisableDevicePairing.current = disableDevicePairing ?? false;
       setOpenclawStatus(OpenClawStatus.TERMINATING);
       return;

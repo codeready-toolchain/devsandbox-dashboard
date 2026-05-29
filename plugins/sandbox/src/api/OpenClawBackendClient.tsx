@@ -133,66 +133,102 @@ export class OpenClawBackendClient implements OpenClawService {
     disableDevicePairing: boolean,
   ): Promise<void> => {
     const kubeApi = this.kubeAPI;
-    const secretUrl = `/api/v1/namespaces/${namespace}/secrets`;
-    const credentialInputs: OpenClawCredentialInput[] = [];
+    const secretsBasePath = `/api/v1/namespaces/${namespace}/secrets`;
+    const createdSecrets: string[] = [];
 
     for (const cred of credentials) {
       const secretName = `${cred.provider.id}-api-key`;
       const secretData: Record<string, string> = {};
-      const secretKeys: string[] = [];
 
       for (const field of cred.provider.fields) {
         const value = cred.values[field.key];
         if (value) {
           secretData[field.key] = value;
-          secretKeys.push(field.key);
         }
       }
 
+      const secretBody = newOpenClawSecretObject(
+        namespace,
+        secretName,
+        secretData,
+      );
+
       const secretResponse = await this.secureFetchApi.fetch(
-        `${kubeApi}${secretUrl}`,
+        `${kubeApi}${secretsBasePath}`,
         {
           method: 'POST',
-          body: newOpenClawSecretObject(namespace, secretName, secretData),
+          body: secretBody,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+
+      if (secretResponse.ok) {
+        createdSecrets.push(secretName);
+      } else if (secretResponse.status === 409) {
+        const updateResponse = await this.secureFetchApi.fetch(
+          `${kubeApi}${secretsBasePath}/${secretName}`,
+          {
+            method: 'PUT',
+            body: secretBody,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        );
+        if (!updateResponse.ok) {
+          const error = await updateResponse.json();
+          throw new Error(errorMessage(error));
+        }
+        createdSecrets.push(secretName);
+      } else {
+        const error = await secretResponse.json();
+        throw new Error(errorMessage(error));
+      }
+    }
+
+    try {
+      const credentialInputs: OpenClawCredentialInput[] = credentials.map(
+        cred => {
+          const secretKeys = cred.provider.fields
+            .filter(field => cred.values[field.key])
+            .map(field => field.key);
+          return {
+            name: cred.provider.id,
+            type: cred.provider.fields.length === 1 ? 'apiKey' : 'composite',
+            provider: cred.provider.provider,
+            secretName: `${cred.provider.id}-api-key`,
+            secretKeys,
+          };
+        },
+      );
+
+      const clawUrl = `/apis/claw.sandbox.redhat.com/v1alpha1/namespaces/${namespace}/claws`;
+      const clawResponse = await this.secureFetchApi.fetch(
+        `${kubeApi}${clawUrl}`,
+        {
+          method: 'POST',
+          body: newOpenClawObject(
+            namespace,
+            clawName,
+            credentialInputs,
+            disableDevicePairing,
+          ),
           headers: {
             'Content-Type': 'application/json',
           },
         },
       );
-      if (!secretResponse.ok && secretResponse.status !== 409) {
-        const error = await secretResponse.json();
+
+      if (!clawResponse.ok && clawResponse.status !== 409) {
+        const error = await clawResponse.json();
         throw new Error(errorMessage(error));
       }
-
-      credentialInputs.push({
-        name: cred.provider.id,
-        type: cred.provider.fields.length === 1 ? 'apiKey' : 'composite',
-        provider: cred.provider.provider,
-        secretName,
-        secretKeys,
-      });
-    }
-
-    const clawUrl = `/apis/claw.sandbox.redhat.com/v1alpha1/namespaces/${namespace}/claws`;
-    const clawResponse = await this.secureFetchApi.fetch(
-      `${kubeApi}${clawUrl}`,
-      {
-        method: 'POST',
-        body: newOpenClawObject(
-          namespace,
-          clawName,
-          credentialInputs,
-          disableDevicePairing,
-        ),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      },
-    );
-
-    if (!clawResponse.ok && clawResponse.status !== 409) {
-      const error = await clawResponse.json();
-      throw new Error(errorMessage(error));
+    } catch (err) {
+      for (const secretName of createdSecrets) {
+        await this.secureFetchApi.fetch(
+          `${kubeApi}${secretsBasePath}/${secretName}`,
+          { method: 'DELETE' },
+        );
+      }
+      throw err;
     }
   };
 
