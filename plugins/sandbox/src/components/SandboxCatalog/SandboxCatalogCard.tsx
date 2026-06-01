@@ -374,6 +374,8 @@ export const SandboxCatalogCard: React.FC<SandboxCatalogCardProps> = ({
       {id === Product.OPENCLAW && (
         <>
           <OpenClawLaunchInfoModal
+            handleTryButtonClick={handleTryButtonClick}
+            id={id}
             modalOpen={openclawModalOpen}
             setOpen={setOpenclawModalOpen}
           />
