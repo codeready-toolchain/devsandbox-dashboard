@@ -43,15 +43,18 @@ import {
 } from '../../utils/openclaw-providers';
 import { ProviderCredentialForm } from './ProviderCredentialForm';
 import { CredentialList, AddedCredential } from './CredentialList';
+import { Product } from '../SandboxCatalog/productData';
 
 type OpenClawLaunchInfoModalProps = {
+  handleTryButtonClick: (id: Product) => void;
+  id: Product;
   modalOpen: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 export const OpenClawLaunchInfoModal: React.FC<
   OpenClawLaunchInfoModalProps
-> = ({ modalOpen, setOpen }) => {
+> = ({ handleTryButtonClick, id, modalOpen, setOpen }) => {
   const theme = useTheme();
   const { userData, openclawError, openclawStatus, handleOpenClawInstance } =
     useSandboxContext();
@@ -81,6 +84,11 @@ export const OpenClawLaunchInfoModal: React.FC<
   const handleClose = () => {
     resetForm();
     setOpen(false);
+  };
+
+  const handleTryItButtonClick = () => {
+    handleTryButtonClick(id);
+    handleClose();
   };
 
   const handleFieldChange = useCallback((key: string, value: string) => {
@@ -205,7 +213,7 @@ export const OpenClawLaunchInfoModal: React.FC<
         <DialogActions sx={{ justifyContent: 'flex-start', pl: 3, pb: 3 }}>
           <Button
             variant="outlined"
-            onClick={handleClose}
+            onClick={handleTryItButtonClick}
             sx={{
               textTransform: 'none',
               border: `1px solid ${theme.palette.primary.main}`,
@@ -215,7 +223,7 @@ export const OpenClawLaunchInfoModal: React.FC<
               },
             }}
           >
-            Close
+            Launch
           </Button>
         </DialogActions>
       </Dialog>

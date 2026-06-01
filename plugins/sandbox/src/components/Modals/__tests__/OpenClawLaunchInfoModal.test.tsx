@@ -20,6 +20,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { OpenClawLaunchInfoModal } from '../OpenClawLaunchInfoModal';
 import { useSandboxContext } from '../../../hooks/useSandboxContext';
 import { OpenClawStatus } from '../../../utils/openclaw-utils';
+import { Product } from '../../SandboxCatalog/productData';
 import { wrapInTestApp } from '@backstage/test-utils';
 
 jest.mock('../../../hooks/useSandboxContext');
@@ -27,9 +28,12 @@ jest.mock('../../../hooks/useSandboxContext');
 describe('OpenClawLaunchInfoModal', () => {
   const theme = createTheme();
   const mockSetOpen = jest.fn();
+  const mockHandleTryButtonClick = jest.fn();
   const mockHandleOpenClawInstance = jest.fn();
 
   const defaultProps = {
+    handleTryButtonClick: mockHandleTryButtonClick,
+    id: Product.OPENCLAW,
     modalOpen: true,
     setOpen: mockSetOpen,
   };
@@ -92,6 +96,14 @@ describe('OpenClawLaunchInfoModal', () => {
     expect(
       screen.getByText(/Your OpenClaw instance is ready to use/i),
     ).toBeInTheDocument();
+  });
+
+  it('calls handleTryButtonClick and closes when Launch button is clicked in ready state', () => {
+    renderModal({ openclawStatus: OpenClawStatus.READY });
+
+    fireEvent.click(screen.getByRole('button', { name: /Launch/i }));
+    expect(mockHandleTryButtonClick).toHaveBeenCalledWith(Product.OPENCLAW);
+    expect(mockSetOpen).toHaveBeenCalledWith(false);
   });
 
   it('renders the provisioning state correctly', () => {
