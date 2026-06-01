@@ -17,12 +17,9 @@ import React, { useState } from 'react';
 import Autocomplete from '@mui/material/Autocomplete';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
-import Link from '@mui/material/Link';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import {
@@ -145,20 +142,6 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
 }) => {
   return (
     <Stack spacing={2} sx={{ mt: 1 }}>
-      {provider.keyUrl && (
-        <Typography variant="body2" color="text.secondary">
-          <Link
-            href={provider.keyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
-          >
-            Get a key
-            <OpenInNewIcon sx={{ fontSize: 14 }} />
-          </Link>
-        </Typography>
-      )}
-
       {provider.fields.map(field => {
         const value = values[field.key] ?? '';
         const hasError = errors[field.key] ?? false;

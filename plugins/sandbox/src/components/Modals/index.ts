@@ -22,5 +22,7 @@ export { default as OpenClawLaunchInfoModal } from './OpenClawLaunchInfoModal';
 export { default as OpenClawDeleteInstanceModal } from './OpenClawDeleteInstanceModal';
 export { ProviderCredentialForm } from './ProviderCredentialForm';
 export { CredentialList } from './CredentialList';
+export { CredentialAccordion } from './CredentialAccordion';
+export type { CredentialAccordionRef } from './CredentialAccordion';
 export type { AddedCredential } from '../../utils/openclaw-providers';
 export { DeleteInstanceModal } from './DeleteInstanceModal';
