@@ -154,12 +154,6 @@ describe('OpenClawLaunchInfoModal', () => {
     expect(mockSetOpen).toHaveBeenCalledWith(false);
   });
 
-  it('shows the device pairing switch', () => {
-    renderModal();
-
-    expect(screen.getByLabelText(/Enable device pairing/i)).toBeInTheDocument();
-  });
-
   it('shows provider credential form when a provider is selected', async () => {
     renderModal();
 

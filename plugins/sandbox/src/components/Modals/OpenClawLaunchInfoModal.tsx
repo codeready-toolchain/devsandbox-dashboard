@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -22,9 +22,7 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
-import Switch from '@mui/material/Switch';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
@@ -55,14 +53,7 @@ export const OpenClawLaunchInfoModal: React.FC<
 
   const accordionRef = useRef<CredentialAccordionRef>(null);
   const [credentialCount, setCredentialCount] = useState(0);
-  const [devicePairingEnabled, setDevicePairingEnabled] = useState(true);
   const [accordionKey, setAccordionKey] = useState(0);
-
-  useEffect(() => {
-    if (modalOpen) {
-      setDevicePairingEnabled(true);
-    }
-  }, [modalOpen]);
 
   const resetForm = () => {
     setCredentialCount(0);
@@ -87,7 +78,7 @@ export const OpenClawLaunchInfoModal: React.FC<
       const success = await handleOpenClawInstance(
         userData.defaultUserNamespace,
         credentials,
-        !devicePairingEnabled,
+        true,
       );
       if (success) {
         resetForm();
@@ -409,17 +400,6 @@ export const OpenClawLaunchInfoModal: React.FC<
           key={accordionKey}
           ref={accordionRef}
           onCredentialCountChange={setCredentialCount}
-        />
-
-        <FormControlLabel
-          control={
-            <Switch
-              checked={devicePairingEnabled}
-              onChange={e => setDevicePairingEnabled(e.target.checked)}
-            />
-          }
-          label="Enable device pairing"
-          sx={{ mt: 2 }}
         />
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'flex-start', pl: 3, pb: 3 }}>
