@@ -13,9 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Alert from '@mui/material/Alert';
-import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -25,9 +24,8 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
-import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
-import TextField from '@mui/material/TextField';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -36,13 +34,9 @@ import ErrorIcon from '@mui/icons-material/Error';
 import { useSandboxContext } from '../../hooks/useSandboxContext';
 import { OpenClawStatus } from '../../utils/openclaw-utils';
 import {
-  PROVIDERS,
-  CATEGORY_LABELS,
-  ProviderConfig,
-  ProviderCategory,
-} from '../../utils/openclaw-providers';
-import { ProviderCredentialForm } from './ProviderCredentialForm';
-import { CredentialList, AddedCredential } from './CredentialList';
+  CredentialAccordion,
+  CredentialAccordionRef,
+} from './CredentialAccordion';
 import { Product } from '../SandboxCatalog/productData';
 
 type OpenClawLaunchInfoModalProps = {
@@ -59,14 +53,10 @@ export const OpenClawLaunchInfoModal: React.FC<
   const { userData, openclawError, openclawStatus, handleOpenClawInstance } =
     useSandboxContext();
 
-  const [selectedProvider, setSelectedProvider] =
-    useState<ProviderConfig | null>(null);
-  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
-  const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({});
-  const [addedCredentials, setAddedCredentials] = useState<AddedCredential[]>(
-    [],
-  );
+  const accordionRef = useRef<CredentialAccordionRef>(null);
+  const [credentialCount, setCredentialCount] = useState(0);
   const [devicePairingEnabled, setDevicePairingEnabled] = useState(true);
+  const [accordionKey, setAccordionKey] = useState(0);
 
   useEffect(() => {
     if (modalOpen) {
@@ -75,10 +65,8 @@ export const OpenClawLaunchInfoModal: React.FC<
   }, [modalOpen]);
 
   const resetForm = () => {
-    setSelectedProvider(null);
-    setFieldValues({});
-    setFieldErrors({});
-    setAddedCredentials([]);
+    setCredentialCount(0);
+    setAccordionKey(k => k + 1);
   };
 
   const handleClose = () => {
@@ -91,64 +79,14 @@ export const OpenClawLaunchInfoModal: React.FC<
     handleClose();
   };
 
-  const handleFieldChange = useCallback((key: string, value: string) => {
-    setFieldValues(prev => ({ ...prev, [key]: value }));
-    setFieldErrors(prev => (prev[key] ? { ...prev, [key]: false } : prev));
-  }, []);
-
-  const handleAddCredential = () => {
-    if (!selectedProvider) return;
-
-    const newErrors: Record<string, boolean> = {};
-    let hasError = false;
-    for (const field of selectedProvider.fields) {
-      const value = fieldValues[field.key]?.trim();
-
-      if (field.required && !value) {
-        newErrors[field.key] = true;
-        hasError = true;
-      } else if (field.type === 'serviceAccountJson' && value) {
-        try {
-          const parsed = JSON.parse(value);
-          if (
-            parsed.type !== 'service_account' &&
-            parsed.type !== 'authorized_user'
-          ) {
-            newErrors[field.key] = true;
-            hasError = true;
-          }
-        } catch {
-          newErrors[field.key] = true;
-          hasError = true;
-        }
-      }
-    }
-
-    if (hasError) {
-      setFieldErrors(newErrors);
-      return;
-    }
-
-    setAddedCredentials(prev => [
-      ...prev.filter(c => c.provider.id !== selectedProvider.id),
-      { provider: selectedProvider, values: { ...fieldValues } },
-    ]);
-    setSelectedProvider(null);
-    setFieldValues({});
-    setFieldErrors({});
-  };
-
-  const handleDeleteCredential = (providerId: string) => {
-    setAddedCredentials(prev => prev.filter(c => c.provider.id !== providerId));
-  };
-
   const handleProvision = async () => {
-    if (addedCredentials.length === 0) return;
+    const credentials = accordionRef.current?.getValidatedCredentials();
+    if (!credentials || credentials.length === 0) return;
 
     if (userData?.defaultUserNamespace) {
       const success = await handleOpenClawInstance(
         userData.defaultUserNamespace,
-        addedCredentials,
+        credentials,
         !devicePairingEnabled,
       );
       if (success) {
@@ -156,11 +94,6 @@ export const OpenClawLaunchInfoModal: React.FC<
       }
     }
   };
-
-  const availableProviders = useMemo(() => {
-    const alreadyAdded = new Set(addedCredentials.map(c => c.provider.id));
-    return PROVIDERS.filter(p => !alreadyAdded.has(p.id));
-  }, [addedCredentials]);
 
   const dialogPaperSx = {
     backgroundColor:
@@ -472,69 +405,10 @@ export const OpenClawLaunchInfoModal: React.FC<
           instance.
         </Typography>
 
-        <Autocomplete
-          options={availableProviders}
-          value={selectedProvider}
-          onChange={(_, newValue) => {
-            setSelectedProvider(newValue);
-            const defaults: Record<string, string> = {};
-            if (newValue) {
-              for (const field of newValue.fields) {
-                if (field.defaultValue) {
-                  defaults[field.key] = field.defaultValue;
-                }
-              }
-            }
-            setFieldValues(defaults);
-            setFieldErrors({});
-          }}
-          getOptionLabel={option => option.name}
-          groupBy={option =>
-            CATEGORY_LABELS[option.category as ProviderCategory]
-          }
-          renderInput={params => (
-            <TextField
-              {...params}
-              variant="filled"
-              label="Search providers..."
-              InputProps={{
-                ...params.InputProps,
-                disableUnderline: true,
-              }}
-              size="small"
-            />
-          )}
-          isOptionEqualToValue={(option, value) => option.id === value.id}
-        />
-
-        {selectedProvider && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-              {selectedProvider.name}
-            </Typography>
-            <ProviderCredentialForm
-              provider={selectedProvider}
-              values={fieldValues}
-              errors={fieldErrors}
-              onChange={handleFieldChange}
-            />
-            <Stack direction="row" sx={{ mt: 2 }}>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={handleAddCredential}
-                sx={{ textTransform: 'none' }}
-              >
-                Add Credential
-              </Button>
-            </Stack>
-          </Box>
-        )}
-
-        <CredentialList
-          credentials={addedCredentials}
-          onDelete={handleDeleteCredential}
-          showEmptyState
+        <CredentialAccordion
+          key={accordionKey}
+          ref={accordionRef}
+          onCredentialCountChange={setCredentialCount}
         />
 
         <FormControlLabel
@@ -549,22 +423,32 @@ export const OpenClawLaunchInfoModal: React.FC<
         />
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'flex-start', pl: 3, pb: 3 }}>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={handleProvision}
-          disabled={addedCredentials.length === 0}
-          sx={{
-            textTransform: 'none',
-            marginRight: theme.spacing(2),
-            backgroundColor: '#1976d2',
-            '&:hover': {
-              backgroundColor: '#1565c0',
-            },
-          }}
+        <Tooltip
+          title={
+            credentialCount === 0
+              ? 'Please add an AI provider credential to provision your OpenClaw instance'
+              : ''
+          }
         >
-          Provision
-        </Button>
+          <span>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleProvision}
+              disabled={credentialCount === 0}
+              sx={{
+                textTransform: 'none',
+                marginRight: theme.spacing(2),
+                backgroundColor: '#1976d2',
+                '&:hover': {
+                  backgroundColor: '#1565c0',
+                },
+              }}
+            >
+              Provision
+            </Button>
+          </span>
+        </Tooltip>
         <Button
           variant="outlined"
           onClick={handleClose}

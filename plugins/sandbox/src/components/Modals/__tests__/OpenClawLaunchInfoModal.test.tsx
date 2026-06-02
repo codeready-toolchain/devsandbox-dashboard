@@ -15,7 +15,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { OpenClawLaunchInfoModal } from '../OpenClawLaunchInfoModal';
 import { useSandboxContext } from '../../../hooks/useSandboxContext';
@@ -64,7 +64,7 @@ describe('OpenClawLaunchInfoModal', () => {
     );
   };
 
-  it('renders the new state with provider search and provision button', () => {
+  it('renders the new state with provider search, add button, and provision button', () => {
     renderModal();
 
     expect(
@@ -75,9 +75,21 @@ describe('OpenClawLaunchInfoModal', () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText(/Search providers/i)).toBeInTheDocument();
     expect(
+      screen.getByText(/Add another AI provider credential/i),
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole('button', { name: /Provision/i }),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Cancel/i })).toBeInTheDocument();
+  });
+
+  it('disables the add button while an empty credential entry exists', () => {
+    renderModal();
+
+    const addButton = screen
+      .getByText(/Add another AI provider credential/i)
+      .closest('button')!;
+    expect(addButton).toBeDisabled();
   });
 
   it('disables the Provision button when no credentials are added', () => {
@@ -152,13 +164,52 @@ describe('OpenClawLaunchInfoModal', () => {
     renderModal();
 
     const autocomplete = screen.getByLabelText(/Search providers/i);
-    fireEvent.change(autocomplete, { target: { value: 'Google Gemini' } });
-    fireEvent.keyDown(autocomplete, { key: 'ArrowDown' });
-    fireEvent.keyDown(autocomplete, { key: 'Enter' });
+    fireEvent.mouseDown(autocomplete);
 
-    expect(await screen.findByText('Google Gemini')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('listbox')).toBeInTheDocument();
+    });
+
+    const option = screen.getByRole('option', { name: /Google Gemini/i });
+    fireEvent.click(option);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Get a key for Google Gemini/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('does not show delete button when only one credential entry exists', () => {
+    renderModal();
+
     expect(
-      screen.getByRole('button', { name: /Add Credential/i }),
-    ).toBeInTheDocument();
+      screen.queryByRole('button', { name: /Delete credential/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows delete buttons when multiple credential entries exist', async () => {
+    renderModal();
+
+    const autocomplete = screen.getByLabelText(/Search providers/i);
+    fireEvent.mouseDown(autocomplete);
+
+    await waitFor(() => {
+      expect(screen.getByRole('listbox')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('option', { name: /Google Gemini/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Add another AI provider credential/i),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText(/Add another AI provider credential/i));
+
+    expect(
+      screen.getAllByRole('button', { name: /Delete credential/i }),
+    ).toHaveLength(2);
   });
 });
