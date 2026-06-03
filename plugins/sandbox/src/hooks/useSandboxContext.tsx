@@ -346,10 +346,15 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
             userNamespace,
             targetNamespace,
           );
+          if (!userData?.apiEndpoint) {
+            throw new Error(
+              'Cannot create workspace kubeconfig: apiEndpoint is missing from signup data',
+            );
+          }
           await openclawApi.createWorkspaceKubeconfig(
             userNamespace,
             targetNamespace,
-            userData!.apiEndpoint!,
+            userData.apiEndpoint,
           );
 
           // Step 8: LLM secret + Claw CR (with k8s credential + workspace)

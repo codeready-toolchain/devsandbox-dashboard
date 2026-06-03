@@ -499,6 +499,12 @@ export class OpenClawBackendClient implements OpenClawService {
       throw new Error('TokenRequest returned no token');
     }
 
+    if (!apiEndpoint?.trim()) {
+      throw new Error(
+        'createWorkspaceKubeconfig: apiEndpoint is required but was empty or undefined',
+      );
+    }
+
     const kubeconfigContent = buildKubeconfig({
       server: apiEndpoint,
       caData,
