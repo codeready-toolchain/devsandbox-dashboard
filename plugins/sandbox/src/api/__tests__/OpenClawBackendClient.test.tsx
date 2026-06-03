@@ -27,6 +27,7 @@ type RequestRecord = {
 };
 
 const KUBE_API = 'http://kube-api';
+const API_ENDPOINT = 'https://api.cluster.example.com:6443';
 const DEV_NS = 'user-dev';
 const CLAW_NS = 'user-claw';
 
@@ -275,7 +276,7 @@ describe('OpenClawBackendClient', () => {
     it('fetches CA, mints token, and creates kubeconfig secret', async () => {
       server.use(...kubeconfigHandlers());
 
-      await client.createWorkspaceKubeconfig(DEV_NS, CLAW_NS);
+      await client.createWorkspaceKubeconfig(DEV_NS, CLAW_NS, API_ENDPOINT);
 
       expect(requestLog).toContainEqual(
         expect.objectContaining({
@@ -305,7 +306,7 @@ describe('OpenClawBackendClient', () => {
       );
 
       await expect(
-        client.createWorkspaceKubeconfig(DEV_NS, CLAW_NS),
+        client.createWorkspaceKubeconfig(DEV_NS, CLAW_NS, API_ENDPOINT),
       ).rejects.toThrow('TokenRequest returned no token');
     });
 
@@ -313,8 +314,30 @@ describe('OpenClawBackendClient', () => {
       server.use(...kubeconfigHandlers({ caStatus: 404 }));
 
       await expect(
-        client.createWorkspaceKubeconfig(DEV_NS, CLAW_NS),
+        client.createWorkspaceKubeconfig(DEV_NS, CLAW_NS, API_ENDPOINT),
       ).resolves.not.toThrow();
+    });
+
+    it('writes the apiEndpoint into the kubeconfig, not the proxy URL', async () => {
+      server.use(...kubeconfigHandlers());
+
+      await client.createWorkspaceKubeconfig(DEV_NS, CLAW_NS, API_ENDPOINT);
+
+      const secretReq = requestLog.find(
+        r =>
+          r.method === 'POST' &&
+          r.url.includes(`/namespaces/${CLAW_NS}/secrets`),
+      );
+      expect(secretReq).toBeDefined();
+
+      const stringData = secretReq!.body!.stringData as
+        | Record<string, string>
+        | undefined;
+      const kubeconfigJson = stringData?.kubeconfig;
+      expect(kubeconfigJson).toBeDefined();
+      const kubeconfig = JSON.parse(kubeconfigJson as string);
+      expect(kubeconfig.clusters[0].cluster.server).toBe(API_ENDPOINT);
+      expect(kubeconfig.clusters[0].cluster.server).not.toBe(KUBE_API);
     });
   });
 
