@@ -17,6 +17,7 @@ import {
   OpenClawCustomProvider,
   OpenClawGcpConfig,
   OpenClawItem,
+  OpenClawWorkspace,
   SpaceRequestItem,
 } from '../types';
 import { isConditionTrue, isConditionFalse } from './condition-utils';
@@ -139,6 +140,8 @@ export type NewOpenClawObjectOptions = {
   disableDevicePairing: boolean;
   customProviders?: OpenClawCustomProviderInput[];
   webSearchProvider?: string;
+  workspace?: OpenClawWorkspace;
+  skills?: Record<string, string>;
 };
 
 export const newOpenClawObject = (opts: NewOpenClawObjectOptions): string => {
@@ -149,6 +152,8 @@ export const newOpenClawObject = (opts: NewOpenClawObjectOptions): string => {
     disableDevicePairing,
     customProviders,
     webSearchProvider,
+    workspace,
+    skills,
   } = opts;
   const spec: Record<string, unknown> = {
     credentials: credentials.map(cred => {
@@ -182,6 +187,14 @@ export const newOpenClawObject = (opts: NewOpenClawObjectOptions): string => {
 
   if (webSearchProvider) {
     spec.webSearch = { provider: webSearchProvider };
+  }
+
+  if (workspace) {
+    spec.workspace = workspace;
+  }
+
+  if (skills && Object.keys(skills).length > 0) {
+    spec.skills = skills;
   }
 
   return JSON.stringify({
@@ -218,3 +231,163 @@ export const newOpenClawSecretObject = (
     },
     stringData: data,
   });
+
+// ---------------------------------------------------------------------------
+// K8s resource builders for OpenClaw environment setup (Steps 4-7)
+// ---------------------------------------------------------------------------
+
+const CLAW_LABELS = {
+  'app.kubernetes.io/managed-by': 'devsandbox-dashboard',
+  'claw.sandbox.redhat.com/instance': 'claw',
+};
+
+export const SA_NAME = 'claw-workspace';
+export const ROLEBINDING_EDIT_NAME = 'claw-workspace-edit';
+export const ROLEBINDING_RBAC_EDIT_NAME = 'claw-workspace-rbac-edit';
+export const NETWORK_POLICY_NAME = 'allow-from-claw-namespace';
+export const KUBECONFIG_SECRET_NAME = 'workspace-kubeconfig';
+
+/** Step 4a: ServiceAccount for the AI assistant's K8s identity. */
+export const newServiceAccountObject = (namespace: string): string =>
+  JSON.stringify({
+    apiVersion: 'v1',
+    kind: 'ServiceAccount',
+    metadata: {
+      namespace,
+      name: SA_NAME,
+      labels: CLAW_LABELS,
+    },
+  });
+
+/** Step 4b: RoleBinding granting `edit` ClusterRole to the SA. */
+export const newEditRoleBindingObject = (namespace: string): string =>
+  JSON.stringify({
+    apiVersion: 'rbac.authorization.k8s.io/v1',
+    kind: 'RoleBinding',
+    metadata: {
+      namespace,
+      name: ROLEBINDING_EDIT_NAME,
+      labels: CLAW_LABELS,
+    },
+    roleRef: {
+      apiGroup: 'rbac.authorization.k8s.io',
+      kind: 'ClusterRole',
+      name: 'edit',
+    },
+    subjects: [
+      {
+        kind: 'ServiceAccount',
+        name: SA_NAME,
+        namespace,
+      },
+    ],
+  });
+
+/** Step 4c: RoleBinding granting `rbac-edit` Role to the SA. */
+export const newRbacEditRoleBindingObject = (namespace: string): string =>
+  JSON.stringify({
+    apiVersion: 'rbac.authorization.k8s.io/v1',
+    kind: 'RoleBinding',
+    metadata: {
+      namespace,
+      name: ROLEBINDING_RBAC_EDIT_NAME,
+      labels: CLAW_LABELS,
+    },
+    roleRef: {
+      apiGroup: 'rbac.authorization.k8s.io',
+      kind: 'Role',
+      name: 'rbac-edit',
+    },
+    subjects: [
+      {
+        kind: 'ServiceAccount',
+        name: SA_NAME,
+        namespace,
+      },
+    ],
+  });
+
+/** Step 5: NetworkPolicy allowing ingress from the `-claw` namespace. */
+export const newNetworkPolicyObject = (
+  devNamespace: string,
+  clawNamespace: string,
+): string =>
+  JSON.stringify({
+    apiVersion: 'networking.k8s.io/v1',
+    kind: 'NetworkPolicy',
+    metadata: {
+      namespace: devNamespace,
+      name: NETWORK_POLICY_NAME,
+      labels: CLAW_LABELS,
+    },
+    spec: {
+      ingress: [
+        {
+          from: [
+            {
+              namespaceSelector: {
+                matchLabels: {
+                  'kubernetes.io/metadata.name': clawNamespace,
+                },
+              },
+            },
+          ],
+        },
+      ],
+      podSelector: {},
+      policyTypes: ['Ingress'],
+    },
+  });
+
+/** Step 6a: TokenRequest body for minting a long-lived SA token. */
+export const TOKEN_EXPIRATION_SECONDS = 31536000; // 8760h = 1 year
+
+export const newTokenRequestObject = (): string =>
+  JSON.stringify({
+    apiVersion: 'authentication.k8s.io/v1',
+    kind: 'TokenRequest',
+    spec: {
+      expirationSeconds: TOKEN_EXPIRATION_SECONDS,
+    },
+  });
+
+/** Step 6b: Build a kubeconfig JSON string from cluster connection details and a SA token. */
+export const buildKubeconfig = (opts: {
+  server: string;
+  caData?: string;
+  allowInsecure?: boolean;
+  token: string;
+  namespace: string;
+}): string => {
+  const cluster: Record<string, unknown> = { server: opts.server };
+  if (opts.caData) {
+    cluster['certificate-authority-data'] = opts.caData;
+  } else if (opts.allowInsecure) {
+    cluster['insecure-skip-tls-verify'] = true;
+  } else {
+    throw new Error(
+      'buildKubeconfig: no caData provided and allowInsecure is not set. ' +
+        'Callers must either supply caData or explicitly set allowInsecure: true.',
+    );
+  }
+
+  const kubeconfig = {
+    apiVersion: 'v1',
+    kind: 'Config',
+    clusters: [{ name: 'sandbox', cluster }],
+    users: [{ name: SA_NAME, user: { token: opts.token } }],
+    contexts: [
+      {
+        name: 'workspace',
+        context: {
+          cluster: 'sandbox',
+          user: SA_NAME,
+          namespace: opts.namespace,
+        },
+      },
+    ],
+    'current-context': 'workspace',
+  };
+
+  return JSON.stringify(kubeconfig);
+};
