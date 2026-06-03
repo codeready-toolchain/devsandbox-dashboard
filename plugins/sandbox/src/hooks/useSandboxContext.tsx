@@ -144,6 +144,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   const pendingDisableDevicePairing = useRef<boolean>(false);
   const creatingSpaceRequest = useRef(false);
   const creatingOpenClaw = useRef(false);
+  const deletingOpenClaw = useRef(false);
   const [openclawData, setOpenclawData] = useState<OpenClawItem | undefined>();
   const [openclawStatus, setOpenclawStatus] = useState<OpenClawStatus>(
     OpenClawStatus.NEW,
@@ -291,6 +292,16 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       const sr = await openclawApi.getSpaceRequest(userNamespace);
 
       if (!sr) {
+        if (deletingOpenClaw.current) {
+          deletingOpenClaw.current = false;
+          setClawNamespace(undefined);
+          setOpenclawData(undefined);
+          setOpenclawStatus(OpenClawStatus.NEW);
+          setOpenclawUILink(undefined);
+          setOpenclawError(null);
+          return { status: OpenClawStatus.NEW, namespace: undefined };
+        }
+
         // No SpaceRequest yet: if credentials were submitted, create one
         // (guarded to prevent duplicate calls from concurrent polls).
         if (pendingCredentials.current && !creatingSpaceRequest.current) {
@@ -317,8 +328,15 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
 
       // Step 2 — handle transient SpaceRequest states
       if (isSpaceRequestTerminating(sr)) {
+        if (deletingOpenClaw.current) {
+          return { status: OpenClawStatus.DELETING, namespace: undefined };
+        }
         setOpenclawStatus(OpenClawStatus.TERMINATING);
         return { status: OpenClawStatus.TERMINATING, namespace: undefined };
+      }
+
+      if (deletingOpenClaw.current) {
+        return { status: OpenClawStatus.DELETING, namespace: undefined };
       }
 
       const targetNamespace = getSpaceRequestNamespace(sr);
@@ -431,6 +449,10 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       return true;
     }
 
+    if (currentStatus === OpenClawStatus.DELETING) {
+      return false;
+    }
+
     if (currentStatus === OpenClawStatus.TERMINATING) {
       if (!credentials || credentials.length === 0) {
         return false;
@@ -474,6 +496,11 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const deleteOpenClaw = async (userNamespace: string) => {
+    deletingOpenClaw.current = true;
+    setOpenclawStatus(OpenClawStatus.DELETING);
+    setOpenclawUILink(undefined);
+    setOpenclawError(null);
+
     const results = await Promise.allSettled([
       clawNamespace
         ? openclawApi.deleteOpenClawCR(clawNamespace)
@@ -491,9 +518,6 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
 
     setClawNamespace(undefined);
     setOpenclawData(undefined);
-    setOpenclawStatus(OpenClawStatus.NEW);
-    setOpenclawUILink(undefined);
-    setOpenclawError(null);
   };
 
   useEffect(() => {
@@ -581,7 +605,8 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     if (
       userData?.defaultUserNamespace &&
       (openclawStatus === OpenClawStatus.PROVISIONING ||
-        openclawStatus === OpenClawStatus.TERMINATING)
+        openclawStatus === OpenClawStatus.TERMINATING ||
+        openclawStatus === OpenClawStatus.DELETING)
     ) {
       const handle = setInterval(
         getOpenClawData,

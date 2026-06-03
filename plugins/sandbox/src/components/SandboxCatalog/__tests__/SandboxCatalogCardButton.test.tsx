@@ -19,6 +19,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { SandboxCatalogCardButton } from '../SandboxCatalogCardButton';
 import { useSandboxContext } from '../../../hooks/useSandboxContext';
 import { AnsibleStatus } from '../../../utils/aap-utils';
+import { OpenClawStatus } from '../../../utils/openclaw-utils';
 import { Product } from '../productData';
 import * as eddlUtils from '../../../utils/eddl-utils';
 import { wrapInTestApp } from '@backstage/test-utils';
@@ -324,6 +325,21 @@ describe('SandboxCatalogCardButton', () => {
         'data-analytics-offerid',
         '701Pe00000dnCEYIA2',
       );
+    });
+  });
+
+  describe('OpenClaw DELETING status', () => {
+    it('does not render the button when OpenClaw is deleting', () => {
+      mockUseSandboxContext.mockReturnValue({
+        loading: false,
+        userFound: true,
+        userReady: true,
+        ansibleStatus: AnsibleStatus.NEW,
+        openclawStatus: OpenClawStatus.DELETING,
+      } as any);
+
+      renderButton({ id: Product.OPENCLAW });
+      expect(screen.queryByRole('button')).not.toBeInTheDocument();
     });
   });
 });

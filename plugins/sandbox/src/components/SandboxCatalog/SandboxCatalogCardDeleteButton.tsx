@@ -40,6 +40,7 @@ const deletableOpenClawStatuses: string[] = [
   OpenClawStatus.READY,
   OpenClawStatus.PROVISIONING,
   OpenClawStatus.FAILED,
+  OpenClawStatus.DELETING,
 ];
 
 export const SandboxCatalogCardDeleteButton: React.FC<
@@ -54,6 +55,10 @@ export const SandboxCatalogCardDeleteButton: React.FC<
 
   if (!shouldShow) return null;
 
+  const isOpenClawDeleting =
+    id === Product.OPENCLAW && openclawStatus === OpenClawStatus.DELETING;
+  const effectivelyDeleting = isDeleting || isOpenClawDeleting;
+
   const isProvisioning =
     (id === Product.AAP && ansibleStatus === AnsibleStatus.PROVISIONING) ||
     (id === Product.OPENCLAW && openclawStatus === OpenClawStatus.PROVISIONING);
@@ -64,12 +69,12 @@ export const SandboxCatalogCardDeleteButton: React.FC<
       color="primary"
       variant="contained"
       data-testid={`delete-${id}`}
-      disabled={isDeleting}
+      disabled={effectivelyDeleting}
       onClick={() => {
-        if (!isDeleting) handleDeleteButtonClick(id);
+        if (!effectivelyDeleting) handleDeleteButtonClick(id);
       }}
       endIcon={
-        isDeleting && (
+        effectivelyDeleting && (
           <CircularProgress
             size={20}
             sx={{ color: theme.palette.common.white }}
@@ -80,7 +85,7 @@ export const SandboxCatalogCardDeleteButton: React.FC<
         marginTop: theme.spacing(0.5),
       }}
     >
-      {isProvisioning ? 'Stop' : 'Delete'}
+      {isOpenClawDeleting ? 'Deleting' : isProvisioning ? 'Stop' : 'Delete'}
     </Button>
   );
 };

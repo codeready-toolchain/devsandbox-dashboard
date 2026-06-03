@@ -30,6 +30,7 @@ export enum OpenClawStatus {
   FAILED = 'failed',
   IDLED = 'idled',
   TERMINATING = 'terminating',
+  DELETING = 'deleting',
 }
 
 export const getOpenClawReadyCondition = (
