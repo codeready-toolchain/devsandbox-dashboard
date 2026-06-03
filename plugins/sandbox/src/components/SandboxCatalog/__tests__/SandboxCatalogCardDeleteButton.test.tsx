@@ -18,6 +18,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { useSandboxContext } from '../../../hooks/useSandboxContext';
 import { AnsibleStatus } from '../../../utils/aap-utils';
+import { OpenClawStatus } from '../../../utils/openclaw-utils';
 import { Product } from '../productData';
 import { wrapInTestApp } from '@backstage/test-utils';
 import { SandboxCatalogCardDeleteButton } from '../SandboxCatalogCardDeleteButton';
@@ -95,5 +96,52 @@ describe('SandboxCatalogCardDeleteButton', () => {
     expect(deleteButton).toBeInTheDocument();
     fireEvent.click(deleteButton);
     expect(mockHandleDeleteButtonClick).toHaveBeenCalled();
+  });
+
+  describe('OpenClaw DELETING status', () => {
+    it('shows disabled "Deleting" button with spinner when OpenClaw is deleting', () => {
+      mockUseSandboxContext.mockReturnValue({
+        ansibleStatus: AnsibleStatus.NEW,
+        openclawStatus: OpenClawStatus.DELETING,
+      } as any);
+      renderButton({ id: Product.OPENCLAW });
+      const button = screen.getByRole('button', { name: /Deleting/i });
+      expect(button).toBeInTheDocument();
+      expect(button).toBeDisabled();
+      expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    });
+
+    it('does not call handleDeleteButtonClick when OpenClaw is deleting', () => {
+      mockUseSandboxContext.mockReturnValue({
+        ansibleStatus: AnsibleStatus.NEW,
+        openclawStatus: OpenClawStatus.DELETING,
+      } as any);
+      renderButton({ id: Product.OPENCLAW });
+      const button = screen.getByRole('button', { name: /Deleting/i });
+      fireEvent.click(button);
+      expect(mockHandleDeleteButtonClick).not.toHaveBeenCalled();
+    });
+
+    it('shows Delete button for OpenClaw in READY status', () => {
+      mockUseSandboxContext.mockReturnValue({
+        ansibleStatus: AnsibleStatus.NEW,
+        openclawStatus: OpenClawStatus.READY,
+      } as any);
+      renderButton({ id: Product.OPENCLAW });
+      const button = screen.getByRole('button', { name: /Delete/i });
+      expect(button).toBeInTheDocument();
+      expect(button).not.toBeDisabled();
+    });
+
+    it('does not render for OpenClaw in NEW status', () => {
+      mockUseSandboxContext.mockReturnValue({
+        ansibleStatus: AnsibleStatus.NEW,
+        openclawStatus: OpenClawStatus.NEW,
+      } as any);
+      renderButton({ id: Product.OPENCLAW });
+      expect(
+        document.querySelector(`[data-testid="delete-${Product.OPENCLAW}"]`),
+      ).toBeNull();
+    });
   });
 });
