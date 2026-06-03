@@ -1,15 +1,14 @@
 name: upload-coverage
 on:
   workflow_run:
-    workflows: [ CI ]
-    types: [ completed ]
+    workflows: [CI]
+    types: [completed]
 
 jobs:
   upload-coverage:
     if: >
       github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
-
     steps:
       - name: Download coverage artifact
         uses: actions/download-artifact@v8
