@@ -330,7 +330,10 @@ describe('OpenClawBackendClient', () => {
       );
       expect(secretReq).toBeDefined();
 
-      const kubeconfigJson = secretReq!.body!.stringData?.kubeconfig;
+      const stringData = secretReq!.body!.stringData as
+        | Record<string, string>
+        | undefined;
+      const kubeconfigJson = stringData?.kubeconfig;
       expect(kubeconfigJson).toBeDefined();
       const kubeconfig = JSON.parse(kubeconfigJson as string);
       expect(kubeconfig.clusters[0].cluster.server).toBe(API_ENDPOINT);
