@@ -177,7 +177,12 @@ export const CredentialAccordion = forwardRef<
   const handleDeleteEntry = useCallback(
     (entryId: string, e: React.MouseEvent) => {
       e.stopPropagation();
-      setEntries(prev => prev.filter(entry => entry.id !== entryId));
+      setEntries(prev => {
+        if (prev.length === 1) {
+          return [{ id: prev[0].id, provider: null, values: {} }];
+        }
+        return prev.filter(entry => entry.id !== entryId);
+      });
       setExpandedIds(prev => {
         const next = new Set(prev);
         next.delete(entryId);
@@ -332,7 +337,7 @@ export const CredentialAccordion = forwardRef<
                   {summary}
                 </Typography>
               )}
-              {entries.length > 1 && (
+              {(entries.length > 1 || hasProvider) && (
                 <Tooltip title="Delete credential">
                   <IconButton
                     size="small"

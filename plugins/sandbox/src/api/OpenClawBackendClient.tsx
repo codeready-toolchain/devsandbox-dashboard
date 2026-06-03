@@ -68,6 +68,7 @@ export interface OpenClawService {
   createWorkspaceKubeconfig(
     devNamespace: string,
     clawNamespace: string,
+    apiEndpoint: string,
   ): Promise<void>;
 
   /** Clean up workspace environment resources from the -dev namespace. */
@@ -457,6 +458,7 @@ export class OpenClawBackendClient implements OpenClawService {
   createWorkspaceKubeconfig = async (
     devNamespace: string,
     clawNamespace: string,
+    apiEndpoint: string,
   ): Promise<void> => {
     const kubeApi = this.kubeAPI;
 
@@ -497,12 +499,14 @@ export class OpenClawBackendClient implements OpenClawService {
       throw new Error('TokenRequest returned no token');
     }
 
-    // Derive the API server URL from the kubeAPI proxy config.
-    // The proxy URL itself is what the SA should target.
-    const server = kubeApi;
+    if (!apiEndpoint?.trim()) {
+      throw new Error(
+        'createWorkspaceKubeconfig: apiEndpoint is required but was empty or undefined',
+      );
+    }
 
     const kubeconfigContent = buildKubeconfig({
-      server,
+      server: apiEndpoint,
       caData,
       allowInsecure: !caData,
       token,
