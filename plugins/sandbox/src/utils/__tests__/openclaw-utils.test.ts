@@ -15,9 +15,17 @@
  */
 
 import {
+  buildKubeconfig,
+  newEditRoleBindingObject,
+  newNetworkPolicyObject,
   newOpenClawObject,
   newOpenClawSecretObject,
+  newRbacEditRoleBindingObject,
+  newServiceAccountObject,
+  newTokenRequestObject,
   OpenClawCredentialInput,
+  SA_NAME,
+  TOKEN_EXPIRATION_SECONDS,
 } from '../openclaw-utils';
 
 describe('openclaw-utils', () => {
@@ -241,6 +249,172 @@ describe('openclaw-utils', () => {
 
       expect(result.metadata.labels['claw.sandbox.redhat.com/instance']).toBe(
         'my-claw',
+      );
+    });
+  });
+
+  describe('newOpenClawObject with workspace and skills', () => {
+    it('includes workspace when provided', () => {
+      const result = JSON.parse(
+        newOpenClawObject({
+          namespace: 'ns',
+          name: 'claw',
+          credentials: [],
+          disableDevicePairing: false,
+          workspace: {
+            skipBootstrap: true,
+            files: { 'SOUL.md': 'soul content' },
+          },
+        }),
+      );
+
+      expect(result.spec.workspace).toEqual({
+        skipBootstrap: true,
+        files: { 'SOUL.md': 'soul content' },
+      });
+    });
+
+    it('includes skills when provided', () => {
+      const result = JSON.parse(
+        newOpenClawObject({
+          namespace: 'ns',
+          name: 'claw',
+          credentials: [],
+          disableDevicePairing: false,
+          skills: { 'dev-sandbox': 'skill content' },
+        }),
+      );
+
+      expect(result.spec.skills).toEqual({
+        'dev-sandbox': 'skill content',
+      });
+    });
+
+    it('omits workspace and skills when not provided', () => {
+      const result = JSON.parse(
+        newOpenClawObject({
+          namespace: 'ns',
+          name: 'claw',
+          credentials: [],
+          disableDevicePairing: false,
+        }),
+      );
+
+      expect(result.spec).not.toHaveProperty('workspace');
+      expect(result.spec).not.toHaveProperty('skills');
+    });
+  });
+
+  describe('newServiceAccountObject', () => {
+    it('creates a ServiceAccount with the correct name and labels', () => {
+      const result = JSON.parse(newServiceAccountObject('user-dev'));
+
+      expect(result.apiVersion).toBe('v1');
+      expect(result.kind).toBe('ServiceAccount');
+      expect(result.metadata.namespace).toBe('user-dev');
+      expect(result.metadata.name).toBe(SA_NAME);
+      expect(result.metadata.labels['app.kubernetes.io/managed-by']).toBe(
+        'devsandbox-dashboard',
+      );
+    });
+  });
+
+  describe('newEditRoleBindingObject', () => {
+    it('binds the SA to the edit ClusterRole', () => {
+      const result = JSON.parse(newEditRoleBindingObject('user-dev'));
+
+      expect(result.kind).toBe('RoleBinding');
+      expect(result.metadata.name).toBe('claw-workspace-edit');
+      expect(result.roleRef).toEqual({
+        apiGroup: 'rbac.authorization.k8s.io',
+        kind: 'ClusterRole',
+        name: 'edit',
+      });
+      expect(result.subjects[0]).toEqual({
+        kind: 'ServiceAccount',
+        name: SA_NAME,
+        namespace: 'user-dev',
+      });
+    });
+  });
+
+  describe('newRbacEditRoleBindingObject', () => {
+    it('binds the SA to the rbac-edit Role', () => {
+      const result = JSON.parse(newRbacEditRoleBindingObject('user-dev'));
+
+      expect(result.kind).toBe('RoleBinding');
+      expect(result.metadata.name).toBe('claw-workspace-rbac-edit');
+      expect(result.roleRef).toEqual({
+        apiGroup: 'rbac.authorization.k8s.io',
+        kind: 'Role',
+        name: 'rbac-edit',
+      });
+    });
+  });
+
+  describe('newNetworkPolicyObject', () => {
+    it('allows ingress from the claw namespace', () => {
+      const result = JSON.parse(
+        newNetworkPolicyObject('user-dev', 'user-claw'),
+      );
+
+      expect(result.kind).toBe('NetworkPolicy');
+      expect(result.metadata.namespace).toBe('user-dev');
+      expect(result.metadata.name).toBe('allow-from-claw-namespace');
+      expect(result.spec.ingress[0].from[0].namespaceSelector).toEqual({
+        matchLabels: { 'kubernetes.io/metadata.name': 'user-claw' },
+      });
+      expect(result.spec.podSelector).toEqual({});
+      expect(result.spec.policyTypes).toEqual(['Ingress']);
+    });
+  });
+
+  describe('newTokenRequestObject', () => {
+    it('creates a TokenRequest with the correct expiration', () => {
+      const result = JSON.parse(newTokenRequestObject());
+
+      expect(result.apiVersion).toBe('authentication.k8s.io/v1');
+      expect(result.kind).toBe('TokenRequest');
+      expect(result.spec.expirationSeconds).toBe(TOKEN_EXPIRATION_SECONDS);
+    });
+  });
+
+  describe('buildKubeconfig', () => {
+    it('builds a kubeconfig with CA data', () => {
+      const result = JSON.parse(
+        buildKubeconfig({
+          server: 'https://api.cluster.example.com:6443',
+          caData: 'base64-ca-cert',
+          token: 'my-token',
+          namespace: 'user-dev',
+        }),
+      );
+
+      expect(result.apiVersion).toBe('v1');
+      expect(result.kind).toBe('Config');
+      expect(result['current-context']).toBe('workspace');
+      expect(result.clusters[0].name).toBe('sandbox');
+      expect(result.clusters[0].cluster.server).toBe(
+        'https://api.cluster.example.com:6443',
+      );
+      expect(result.clusters[0].cluster['certificate-authority-data']).toBe(
+        'base64-ca-cert',
+      );
+      expect(result.users[0].user.token).toBe('my-token');
+      expect(result.contexts[0].context.namespace).toBe('user-dev');
+    });
+
+    it('omits CA data when not provided', () => {
+      const result = JSON.parse(
+        buildKubeconfig({
+          server: 'https://api.cluster.example.com:6443',
+          token: 'my-token',
+          namespace: 'user-dev',
+        }),
+      );
+
+      expect(result.clusters[0].cluster).not.toHaveProperty(
+        'certificate-authority-data',
       );
     });
   });

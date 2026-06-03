@@ -17,13 +17,24 @@
 import { ConfigApi } from '@backstage/core-plugin-api';
 import { errorMessage } from '../utils/common';
 import {
+  buildKubeconfig,
+  KUBECONFIG_SECRET_NAME,
+  NETWORK_POLICY_NAME,
+  newEditRoleBindingObject,
+  newNetworkPolicyObject,
   newOpenClawObject,
   newOpenClawSecretObject,
+  newRbacEditRoleBindingObject,
+  newServiceAccountObject,
   newSpaceRequestObject,
+  newTokenRequestObject,
   OpenClawCredentialInput,
   OpenClawCustomProviderInput,
+  ROLEBINDING_EDIT_NAME,
+  ROLEBINDING_RBAC_EDIT_NAME,
+  SA_NAME,
 } from '../utils/openclaw-utils';
-import { OpenClawItem, SpaceRequestItem } from '../types';
+import { OpenClawItem, OpenClawWorkspace, SpaceRequestItem } from '../types';
 import { AddedCredential, ProviderConfig } from '../utils/openclaw-providers';
 import { SecureFetchApi } from './SecureFetchClient';
 
@@ -41,9 +52,26 @@ export interface OpenClawService {
     namespace: string,
     credentials: AddedCredential[],
     disableDevicePairing: boolean,
+    workspace?: OpenClawWorkspace,
+    skills?: Record<string, string>,
   ): Promise<void>;
   unIdleOpenClaw(namespace: string): Promise<void>;
   deleteOpenClawCR(namespace: string): Promise<void>;
+
+  /** Set up the OpenClaw workspace environment in the -dev namespace (SA, RBAC, NetworkPolicy). */
+  setupWorkspaceEnvironment(
+    devNamespace: string,
+    clawNamespace: string,
+  ): Promise<void>;
+
+  /** Mint a SA token and create the workspace-kubeconfig secret in the -claw namespace. */
+  createWorkspaceKubeconfig(
+    devNamespace: string,
+    clawNamespace: string,
+  ): Promise<void>;
+
+  /** Clean up workspace environment resources from the -dev namespace. */
+  cleanupWorkspaceEnvironment(devNamespace: string): Promise<void>;
 }
 
 export class OpenClawBackendClient implements OpenClawService {
@@ -284,6 +312,8 @@ export class OpenClawBackendClient implements OpenClawService {
     namespace: string,
     credentials: AddedCredential[],
     disableDevicePairing: boolean,
+    workspace?: OpenClawWorkspace,
+    skills?: Record<string, string>,
   ): Promise<void> => {
     const kubeApi = this.kubeAPI;
     const secretsBasePath = `${kubeApi}/api/v1/namespaces/${namespace}/secrets`;
@@ -311,6 +341,15 @@ export class OpenClawBackendClient implements OpenClawService {
         cred => OpenClawBackendClient.buildCredentialInput(cred, secretName),
       );
 
+      if (workspace) {
+        credentialInputs.push({
+          name: 'k8s-workspace',
+          type: 'kubernetes',
+          secretName: KUBECONFIG_SECRET_NAME,
+          secretKeys: ['kubeconfig'],
+        });
+      }
+
       const customProviders: OpenClawCustomProviderInput[] = credentials
         .map(cred => OpenClawBackendClient.buildCustomProvider(cred))
         .filter((cp): cp is OpenClawCustomProviderInput => cp !== undefined);
@@ -331,6 +370,8 @@ export class OpenClawBackendClient implements OpenClawService {
             customProviders:
               customProviders.length > 0 ? customProviders : undefined,
             webSearchProvider,
+            workspace,
+            skills,
           }),
           headers: {
             'Content-Type': 'application/json',
@@ -354,6 +395,150 @@ export class OpenClawBackendClient implements OpenClawService {
       }
       throw err;
     }
+  };
+
+  // -----------------------------------------------------------------------
+  // Workspace environment setup (Steps 4-7)
+  // -----------------------------------------------------------------------
+
+  /**
+   * Idempotent POST: creates a resource and silently succeeds on 409
+   * (already exists). Used for SA, RoleBinding, and NetworkPolicy.
+   */
+  private async createIfAbsent(url: string, body: string): Promise<void> {
+    const response = await this.secureFetchApi.fetch(url, {
+      method: 'POST',
+      body,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (response.ok || response.status === 409) return;
+
+    const error = await response.json();
+    throw new Error(errorMessage(error));
+  }
+
+  /**
+   * Idempotent DELETE: deletes a resource and silently succeeds on 404
+   * (already gone).
+   */
+  private async deleteIfPresent(url: string): Promise<void> {
+    const response = await this.secureFetchApi.fetch(url, {
+      method: 'DELETE',
+    });
+
+    if (response.ok || response.status === 404) return;
+
+    const error = await response.json();
+    throw new Error(errorMessage(error));
+  }
+
+  setupWorkspaceEnvironment = async (
+    devNamespace: string,
+    clawNamespace: string,
+  ): Promise<void> => {
+    const kubeApi = this.kubeAPI;
+    const saUrl = `${kubeApi}/api/v1/namespaces/${devNamespace}/serviceaccounts`;
+    const rbUrl = `${kubeApi}/apis/rbac.authorization.k8s.io/v1/namespaces/${devNamespace}/rolebindings`;
+    const npUrl = `${kubeApi}/apis/networking.k8s.io/v1/namespaces/${devNamespace}/networkpolicies`;
+
+    await this.createIfAbsent(saUrl, newServiceAccountObject(devNamespace));
+
+    await Promise.all([
+      this.createIfAbsent(rbUrl, newEditRoleBindingObject(devNamespace)),
+      this.createIfAbsent(rbUrl, newRbacEditRoleBindingObject(devNamespace)),
+      this.createIfAbsent(
+        npUrl,
+        newNetworkPolicyObject(devNamespace, clawNamespace),
+      ),
+    ]);
+  };
+
+  createWorkspaceKubeconfig = async (
+    devNamespace: string,
+    clawNamespace: string,
+  ): Promise<void> => {
+    const kubeApi = this.kubeAPI;
+
+    // Fetch the cluster CA from the kube-root-ca.crt ConfigMap
+    let caData: string | undefined;
+    try {
+      const caUrl = `${kubeApi}/api/v1/namespaces/${devNamespace}/configmaps/kube-root-ca.crt`;
+      const caResponse = await this.secureFetchApi.fetch(caUrl, {
+        method: 'GET',
+      });
+      if (caResponse.ok) {
+        const caConfigMap = await caResponse.json();
+        const caCert: string | undefined = caConfigMap?.data?.['ca.crt'];
+        if (caCert) {
+          caData = btoa(caCert);
+        }
+      }
+    } catch {
+      // Non-fatal: proceed without CA data
+    }
+
+    // Mint a long-lived SA token
+    const tokenUrl = `${kubeApi}/api/v1/namespaces/${devNamespace}/serviceaccounts/${SA_NAME}/token`;
+    const tokenResponse = await this.secureFetchApi.fetch(tokenUrl, {
+      method: 'POST',
+      body: newTokenRequestObject(),
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!tokenResponse.ok) {
+      const error = await tokenResponse.json();
+      throw new Error(errorMessage(error));
+    }
+
+    const tokenData = await tokenResponse.json();
+    const token: string = tokenData.status?.token;
+    if (!token) {
+      throw new Error('TokenRequest returned no token');
+    }
+
+    // Derive the API server URL from the kubeAPI proxy config.
+    // The proxy URL itself is what the SA should target.
+    const server = kubeApi;
+
+    const kubeconfigContent = buildKubeconfig({
+      server,
+      caData,
+      token,
+      namespace: devNamespace,
+    });
+
+    // Create the kubeconfig secret in the -claw namespace
+    const secretsBasePath = `${kubeApi}/api/v1/namespaces/${clawNamespace}/secrets`;
+    const secretBody = newOpenClawSecretObject(
+      clawNamespace,
+      KUBECONFIG_SECRET_NAME,
+      { kubeconfig: kubeconfigContent },
+    );
+    await this.createOrUpdateSecret(
+      secretsBasePath,
+      KUBECONFIG_SECRET_NAME,
+      secretBody,
+    );
+  };
+
+  cleanupWorkspaceEnvironment = async (devNamespace: string): Promise<void> => {
+    const kubeApi = this.kubeAPI;
+
+    await Promise.allSettled([
+      this.deleteIfPresent(
+        `${kubeApi}/apis/networking.k8s.io/v1/namespaces/${devNamespace}/networkpolicies/${NETWORK_POLICY_NAME}`,
+      ),
+      this.deleteIfPresent(
+        `${kubeApi}/apis/rbac.authorization.k8s.io/v1/namespaces/${devNamespace}/rolebindings/${ROLEBINDING_RBAC_EDIT_NAME}`,
+      ),
+      this.deleteIfPresent(
+        `${kubeApi}/apis/rbac.authorization.k8s.io/v1/namespaces/${devNamespace}/rolebindings/${ROLEBINDING_EDIT_NAME}`,
+      ),
+      this.deleteIfPresent(
+        `${kubeApi}/api/v1/namespaces/${devNamespace}/serviceaccounts/${SA_NAME}`,
+      ),
+    ]);
   };
 
   unIdleOpenClaw = async (namespace: string): Promise<void> => {

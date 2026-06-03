@@ -65,6 +65,11 @@ export type OpenClawWebSearch = {
   provider: string;
 };
 
+export type OpenClawWorkspace = {
+  skipBootstrap?: boolean;
+  files?: Record<string, string>;
+};
+
 export type OpenClawItem = {
   metadata: {
     name: string;
@@ -79,6 +84,8 @@ export type OpenClawItem = {
     auth?: {
       disableDevicePairing?: boolean;
     };
+    workspace?: OpenClawWorkspace;
+    skills?: Record<string, string>;
   };
   status?: {
     conditions?: StatusCondition[];

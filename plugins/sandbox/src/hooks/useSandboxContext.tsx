@@ -37,6 +37,10 @@ import {
   isSpaceRequestTerminating,
   getSpaceRequestNamespace,
 } from '../utils/openclaw-utils';
+import {
+  defaultOpenClawWorkspace,
+  defaultOpenClawSkills,
+} from '../utils/openclaw-workspace-content';
 
 import { errorMessage } from '../utils/common';
 import {
@@ -330,17 +334,30 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       const data = await openclawApi.getOpenClaw(targetNamespace);
       setOpenclawData(data);
 
-      // OpenClaw doesn't exist yet: if credentials are pending, create it
-      // (guarded to prevent duplicate calls from concurrent polls).
+      // OpenClaw doesn't exist yet: if credentials are pending, set up the
+      // workspace environment (SA, RBAC, NetworkPolicy, kubeconfig) and
+      // then create the Claw CR.
       if (!data && pendingCredentials.current && !creatingOpenClaw.current) {
         creatingOpenClaw.current = true;
         const credentials = pendingCredentials.current;
         const disableDevicePairing = pendingDisableDevicePairing.current;
         try {
+          await openclawApi.setupWorkspaceEnvironment(
+            userNamespace,
+            targetNamespace,
+          );
+          await openclawApi.createWorkspaceKubeconfig(
+            userNamespace,
+            targetNamespace,
+          );
+
+          // Step 8: LLM secret + Claw CR (with k8s credential + workspace)
           await openclawApi.createOpenClaw(
             targetNamespace,
             credentials,
             disableDevicePairing,
+            defaultOpenClawWorkspace,
+            defaultOpenClawSkills,
           );
           pendingCredentials.current = undefined;
           pendingDisableDevicePairing.current = false;
@@ -456,6 +473,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
         ? openclawApi.deleteOpenClawCR(clawNamespace)
         : Promise.resolve(),
       openclawApi.deleteSpaceRequest(userNamespace),
+      openclawApi.cleanupWorkspaceEnvironment(userNamespace),
     ]);
 
     for (const result of results) {
