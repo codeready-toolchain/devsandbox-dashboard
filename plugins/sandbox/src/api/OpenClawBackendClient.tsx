@@ -525,7 +525,14 @@ export class OpenClawBackendClient implements OpenClawService {
   cleanupWorkspaceEnvironment = async (devNamespace: string): Promise<void> => {
     const kubeApi = this.kubeAPI;
 
-    await Promise.allSettled([
+    const resourceLabels = [
+      `NetworkPolicy/${NETWORK_POLICY_NAME}`,
+      `RoleBinding/${ROLEBINDING_RBAC_EDIT_NAME}`,
+      `RoleBinding/${ROLEBINDING_EDIT_NAME}`,
+      `ServiceAccount/${SA_NAME}`,
+    ];
+
+    const results = await Promise.allSettled([
       this.deleteIfPresent(
         `${kubeApi}/apis/networking.k8s.io/v1/namespaces/${devNamespace}/networkpolicies/${NETWORK_POLICY_NAME}`,
       ),
@@ -539,6 +546,29 @@ export class OpenClawBackendClient implements OpenClawService {
         `${kubeApi}/api/v1/namespaces/${devNamespace}/serviceaccounts/${SA_NAME}`,
       ),
     ]);
+
+    const errors = results
+      .map((r, i) => ({ result: r, resource: resourceLabels[i] }))
+      .filter(
+        (entry): entry is { result: PromiseRejectedResult; resource: string } =>
+          entry.result.status === 'rejected',
+      )
+      .map(({ result, resource }) => {
+        const reason = result.reason;
+        const msg = `Failed to delete ${resource} in namespace ${devNamespace}: ${
+          reason instanceof Error ? reason.message : reason
+        }`;
+        // eslint-disable-next-line no-console
+        console.error(msg, reason);
+        return reason instanceof Error ? reason : new Error(msg);
+      });
+
+    if (errors.length > 0) {
+      throw new AggregateError(
+        errors,
+        `Cleanup of namespace ${devNamespace} had ${errors.length} failure(s)`,
+      );
+    }
   };
 
   unIdleOpenClaw = async (namespace: string): Promise<void> => {

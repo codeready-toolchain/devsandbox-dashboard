@@ -347,5 +347,46 @@ describe('OpenClawBackendClient', () => {
         client.cleanupWorkspaceEnvironment(DEV_NS),
       ).resolves.not.toThrow();
     });
+
+    it('throws AggregateError when some deletions fail', async () => {
+      server.use(
+        rest.delete(
+          `${KUBE_API}/api/v1/namespaces/:ns/serviceaccounts/:name`,
+          (_req, res, ctx) => {
+            requestLog.push({ method: 'DELETE', url: _req.url.toString() });
+            return res(ctx.status(403), ctx.json({ message: 'Forbidden' }));
+          },
+        ),
+        rest.delete(
+          `${KUBE_API}/apis/rbac.authorization.k8s.io/v1/namespaces/:ns/rolebindings/:name`,
+          (_req, res, ctx) => {
+            requestLog.push({ method: 'DELETE', url: _req.url.toString() });
+            return res(ctx.status(200), ctx.json({}));
+          },
+        ),
+        rest.delete(
+          `${KUBE_API}/apis/networking.k8s.io/v1/namespaces/:ns/networkpolicies/:name`,
+          (_req, res, ctx) => {
+            requestLog.push({ method: 'DELETE', url: _req.url.toString() });
+            return res(ctx.status(200), ctx.json({}));
+          },
+        ),
+      );
+
+      const consoleSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      await expect(client.cleanupWorkspaceEnvironment(DEV_NS)).rejects.toThrow(
+        /Cleanup of namespace .* had 1 failure/,
+      );
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('ServiceAccount'),
+        expect.any(Error),
+      );
+
+      consoleSpy.mockRestore();
+    });
   });
 });
