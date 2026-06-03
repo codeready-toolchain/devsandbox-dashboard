@@ -219,9 +219,7 @@ describe('OpenClawLaunchInfoModal', () => {
       ).toBeInTheDocument();
     });
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /Delete credential/i }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: /Delete credential/i }));
 
     await waitFor(() => {
       expect(screen.getByLabelText(/Search providers/i)).toBeInTheDocument();
