@@ -14,19 +14,49 @@
  * limitations under the License.
  */
 import { isEqual } from 'lodash';
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { AAPData, SignupData } from '../types';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { AAPData, OpenClawItem, SignupData } from '../types';
+import { AddedCredential } from '../utils/openclaw-providers';
 import { useApi, configApiRef } from '@backstage/core-plugin-api';
-import { aapApiRef, kubeApiRef, registerApiRef } from '../api';
+import { aapApiRef, kubeApiRef, openclawApiRef, registerApiRef } from '../api';
 import { useRecaptcha } from './useRecaptcha';
 import { LONG_INTERVAL, SandboxEnvironment, SHORT_INTERVAL } from '../const';
 import { signupDataToStatus } from '../utils/register-utils';
 import { AnsibleStatus, decode, getReadyCondition } from '../utils/aap-utils';
+import {
+  OpenClawStatus,
+  getOpenClawReadyCondition,
+  isSpaceRequestReady,
+  isSpaceRequestTerminating,
+  getSpaceRequestNamespace,
+} from '../utils/openclaw-utils';
+import {
+  defaultOpenClawWorkspace,
+  defaultOpenClawSkills,
+} from '../utils/openclaw-workspace-content';
+
 import { errorMessage } from '../utils/common';
 import {
   useSegmentAnalytics,
   SegmentTrackingData,
 } from '../utils/segment-analytics';
+
+interface AAPDataResult {
+  status: AnsibleStatus;
+  data: AAPData | undefined;
+}
+
+interface OpenClawDataResult {
+  status: OpenClawStatus;
+  namespace: string | undefined;
+}
 
 interface SandboxContextType {
   userStatus: string;
@@ -46,8 +76,20 @@ interface SandboxContextType {
   ansibleUILink: string | undefined;
   ansibleError: string | null;
   ansibleStatus: AnsibleStatus;
+  openclawData: OpenClawItem | undefined;
+  openclawError: string | null;
+  openclawStatus: OpenClawStatus;
+  openclawUILink: string | undefined;
+  handleOpenClawInstance: (
+    userNamespace: string,
+    credentials?: AddedCredential[],
+    disableDevicePairing?: boolean,
+  ) => Promise<boolean>;
+  deleteOpenClaw: (userNamespace: string) => Promise<void>;
+  refetchOpenClaw: (userNamespace: string) => Promise<OpenClawDataResult>;
   segmentTrackClick?: (data: SegmentTrackingData) => Promise<void>;
   marketoWebhookURL?: string;
+  disabledIntegrations?: string[];
 }
 
 const SandboxContext = createContext<SandboxContextType | undefined>(undefined);
@@ -69,11 +111,15 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       SandboxEnvironment.PROD) !== SandboxEnvironment.DEV;
   useRecaptcha(isProd);
   const aapApi = useApi(aapApiRef);
+  const openclawApi = useApi(openclawApiRef);
   const kubeApi = useApi(kubeApiRef);
   const registerApi = useApi(registerApiRef);
   const [segmentWriteKey, setSegmentWriteKey] = useState<string>();
   const [marketoWebhookURL, setMarketoWebhookURL] = useState<string>();
-  const [statusUnknown, setStatusUnknown] = React.useState(true);
+  const [disabledIntegrations, setDisabledIntegrations] = useState<
+    string[] | undefined
+  >();
+  const [statusUnknown, setStatusUnknown] = useState(true);
   const [userFound, setUserFound] = useState<boolean>(false);
   const [userData, setData] = useState<SignupData | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(true);
@@ -84,18 +130,28 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const segmentAnalytics = useSegmentAnalytics(segmentWriteKey, userData);
 
-  const [ansibleData, setAnsibleData] = React.useState<AAPData | undefined>();
-  const [ansibleUILink, setAnsibleUILink] = React.useState<
-    string | undefined
-  >();
-  const [ansibleUIUser, setAnsibleUIUser] = React.useState<string>();
-  const [ansibleUIPassword, setAnsibleUIPassword] = React.useState<string>('');
-  const [ansibleStatus, setAnsibleStatus] = React.useState<AnsibleStatus>(
+  const [ansibleData, setAnsibleData] = useState<AAPData | undefined>();
+  const [ansibleUILink, setAnsibleUILink] = useState<string | undefined>();
+  const [ansibleUIUser, setAnsibleUIUser] = useState<string>();
+  const [ansibleUIPassword, setAnsibleUIPassword] = useState<string>('');
+  const [ansibleStatus, setAnsibleStatus] = useState<AnsibleStatus>(
     AnsibleStatus.NEW,
   );
   const [ansibleError, setAnsibleError] = useState<string | null>(null);
 
-  const status = React.useMemo(
+  const [clawNamespace, setClawNamespace] = useState<string | undefined>();
+  const pendingCredentials = useRef<AddedCredential[] | undefined>(undefined);
+  const pendingDisableDevicePairing = useRef<boolean>(false);
+  const creatingSpaceRequest = useRef(false);
+  const creatingOpenClaw = useRef(false);
+  const [openclawData, setOpenclawData] = useState<OpenClawItem | undefined>();
+  const [openclawStatus, setOpenclawStatus] = useState<OpenClawStatus>(
+    OpenClawStatus.NEW,
+  );
+  const [openclawUILink, setOpenclawUILink] = useState<string | undefined>();
+  const [openclawError, setOpenclawError] = useState<string | null>(null);
+
+  const status = useMemo(
     () => (statusUnknown ? 'unknown' : signupDataToStatus(userData)),
     [statusUnknown, userData],
   );
@@ -148,7 +204,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const getAAPData = async (userNamespace: string) => {
+  const getAAPData = async (userNamespace: string): Promise<AAPDataResult> => {
     try {
       const data = await aapApi.getAAP(userNamespace);
       setAnsibleData(data);
@@ -171,25 +227,29 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
           }
         }
       }
+      return { status: st, data };
     } catch (e) {
       setAnsibleError(errorMessage(e));
+      return { status: AnsibleStatus.UNKNOWN, data: undefined };
     }
   };
 
   const handleAAPInstance = async (userNamespace: string) => {
-    await getAAPData(userNamespace);
+    const { status: currentStatus, data: currentData } = await getAAPData(
+      userNamespace,
+    );
 
     if (
-      ansibleStatus === AnsibleStatus.PROVISIONING ||
-      ansibleStatus === AnsibleStatus.READY
+      currentStatus === AnsibleStatus.PROVISIONING ||
+      currentStatus === AnsibleStatus.READY
     ) {
       return;
     }
 
     if (
-      ansibleStatus === AnsibleStatus.IDLED &&
-      ansibleData &&
-      ansibleData?.items?.length > 0
+      currentStatus === AnsibleStatus.IDLED &&
+      currentData &&
+      currentData?.items?.length > 0
     ) {
       try {
         await aapApi.unIdleAAP(userNamespace);
@@ -205,6 +265,229 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       // eslint-disable-next-line no-console
       console.error(e);
     }
+  };
+
+  // Polls the current OpenClaw provisioning state for the user. This function
+  // is called on an interval, so every branch must be idempotent and guard
+  // against concurrent in-flight mutations (see creatingSpaceRequest /
+  // creatingOpenClaw refs). The overall flow is:
+  //
+  //   1. Fetch the SpaceRequest — if none exists yet and the user has submitted
+  //      credentials, kick off creation. Otherwise report NEW.
+  //   2. If the SpaceRequest is terminating or hasn't been assigned a namespace
+  //      yet, report the corresponding transient status.
+  //   3. Once a target namespace is known, fetch the OpenClaw resource inside
+  //      it. If it doesn't exist and credentials are pending, create it.
+  //   4. Derive the final status from the OpenClaw ready-condition and, when
+  //      available, build the UI link (with device-pairing path if enabled).
+  //   5. Edge case: if the OpenClaw status is unknown but the SpaceRequest
+  //      itself is ready, treat it as still provisioning so the UI keeps
+  //      polling rather than showing an error.
+  const getOpenClawData = async (
+    userNamespace: string,
+  ): Promise<OpenClawDataResult> => {
+    try {
+      // Step 1 — resolve the SpaceRequest
+      const sr = await openclawApi.getSpaceRequest(userNamespace);
+
+      if (!sr) {
+        // No SpaceRequest yet: if credentials were submitted, create one
+        // (guarded to prevent duplicate calls from concurrent polls).
+        if (pendingCredentials.current && !creatingSpaceRequest.current) {
+          creatingSpaceRequest.current = true;
+          try {
+            await openclawApi.createSpaceRequest(userNamespace);
+            setOpenclawStatus(OpenClawStatus.PROVISIONING);
+            return {
+              status: OpenClawStatus.PROVISIONING,
+              namespace: undefined,
+            };
+          } catch (e) {
+            pendingCredentials.current = undefined;
+            setOpenclawError(errorMessage(e));
+            setOpenclawStatus(OpenClawStatus.NEW);
+            return { status: OpenClawStatus.NEW, namespace: undefined };
+          } finally {
+            creatingSpaceRequest.current = false;
+          }
+        }
+        setOpenclawStatus(OpenClawStatus.NEW);
+        return { status: OpenClawStatus.NEW, namespace: undefined };
+      }
+
+      // Step 2 — handle transient SpaceRequest states
+      if (isSpaceRequestTerminating(sr)) {
+        setOpenclawStatus(OpenClawStatus.TERMINATING);
+        return { status: OpenClawStatus.TERMINATING, namespace: undefined };
+      }
+
+      const targetNamespace = getSpaceRequestNamespace(sr);
+      if (!targetNamespace) {
+        // SpaceRequest exists but hasn't been assigned a namespace yet
+        setOpenclawStatus(OpenClawStatus.PROVISIONING);
+        return { status: OpenClawStatus.PROVISIONING, namespace: undefined };
+      }
+
+      setClawNamespace(targetNamespace);
+
+      // Step 3 — fetch (or create) the OpenClaw resource
+      const data = await openclawApi.getOpenClaw(targetNamespace);
+      setOpenclawData(data);
+
+      // OpenClaw doesn't exist yet: if credentials are pending, set up the
+      // workspace environment (SA, RBAC, NetworkPolicy, kubeconfig) and
+      // then create the Claw CR.
+      if (!data && pendingCredentials.current && !creatingOpenClaw.current) {
+        creatingOpenClaw.current = true;
+        const credentials = pendingCredentials.current;
+        const disableDevicePairing = pendingDisableDevicePairing.current;
+        try {
+          await openclawApi.setupWorkspaceEnvironment(
+            userNamespace,
+            targetNamespace,
+          );
+          await openclawApi.createWorkspaceKubeconfig(
+            userNamespace,
+            targetNamespace,
+          );
+
+          // Step 8: LLM secret + Claw CR (with k8s credential + workspace)
+          await openclawApi.createOpenClaw(
+            targetNamespace,
+            credentials,
+            disableDevicePairing,
+            defaultOpenClawWorkspace,
+            defaultOpenClawSkills,
+          );
+          pendingCredentials.current = undefined;
+          pendingDisableDevicePairing.current = false;
+          setOpenclawStatus(OpenClawStatus.PROVISIONING);
+          return {
+            status: OpenClawStatus.PROVISIONING,
+            namespace: targetNamespace,
+          };
+        } catch (e) {
+          setOpenclawError(errorMessage(e));
+          setOpenclawStatus(OpenClawStatus.UNKNOWN);
+          return { status: OpenClawStatus.UNKNOWN, namespace: targetNamespace };
+        } finally {
+          creatingOpenClaw.current = false;
+        }
+      }
+
+      // Step 4 — derive status and build the UI link
+      const st = getOpenClawReadyCondition(data, setOpenclawError);
+      setOpenclawStatus(st);
+      if (data?.status?.url) {
+        try {
+          const url = new URL(data.status.url);
+          if (!data.spec?.auth?.disableDevicePairing) {
+            url.pathname = `${url.pathname.replace(
+              /\/$/,
+              '',
+            )}/integration/device-pairing/`;
+          }
+          setOpenclawUILink(url.toString());
+        } catch {
+          setOpenclawUILink(data.status.url);
+        }
+      }
+
+      // Step 5 — if the OpenClaw status can't be determined yet but the
+      // SpaceRequest is ready, report PROVISIONING so we keep polling.
+      if (st === OpenClawStatus.UNKNOWN && isSpaceRequestReady(sr)) {
+        setOpenclawStatus(OpenClawStatus.PROVISIONING);
+        return {
+          status: OpenClawStatus.PROVISIONING,
+          namespace: targetNamespace,
+        };
+      }
+
+      return { status: st, namespace: targetNamespace };
+    } catch (e) {
+      setOpenclawError(errorMessage(e));
+      return { status: OpenClawStatus.UNKNOWN, namespace: undefined };
+    }
+  };
+
+  const handleOpenClawInstance = async (
+    userNamespace: string,
+    credentials?: AddedCredential[],
+    disableDevicePairing?: boolean,
+  ): Promise<boolean> => {
+    const { status: currentStatus, namespace: resolvedNamespace } =
+      await getOpenClawData(userNamespace);
+
+    if (
+      currentStatus === OpenClawStatus.PROVISIONING ||
+      currentStatus === OpenClawStatus.READY
+    ) {
+      return true;
+    }
+
+    if (currentStatus === OpenClawStatus.TERMINATING) {
+      if (!credentials || credentials.length === 0) {
+        return false;
+      }
+      pendingCredentials.current = credentials;
+      pendingDisableDevicePairing.current = disableDevicePairing ?? false;
+      setOpenclawStatus(OpenClawStatus.TERMINATING);
+      return true;
+    }
+
+    if (currentStatus === OpenClawStatus.IDLED && resolvedNamespace) {
+      try {
+        await openclawApi.unIdleOpenClaw(resolvedNamespace);
+        setOpenclawStatus(OpenClawStatus.PROVISIONING);
+        return true;
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error(e);
+        setOpenclawError(errorMessage(e));
+        return false;
+      }
+    }
+
+    if (!credentials || credentials.length === 0) {
+      return false;
+    }
+
+    try {
+      pendingCredentials.current = credentials;
+      pendingDisableDevicePairing.current = disableDevicePairing ?? false;
+      await openclawApi.createSpaceRequest(userNamespace);
+      setOpenclawStatus(OpenClawStatus.PROVISIONING);
+      return true;
+    } catch (e) {
+      pendingCredentials.current = undefined;
+      setOpenclawError(errorMessage(e));
+      // eslint-disable-next-line no-console
+      console.error(e);
+      return false;
+    }
+  };
+
+  const deleteOpenClaw = async (userNamespace: string) => {
+    const results = await Promise.allSettled([
+      clawNamespace
+        ? openclawApi.deleteOpenClawCR(clawNamespace)
+        : Promise.resolve(),
+      openclawApi.deleteSpaceRequest(userNamespace),
+      openclawApi.cleanupWorkspaceEnvironment(userNamespace),
+    ]);
+
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        // eslint-disable-next-line no-console
+        console.error(result.reason);
+      }
+    }
+
+    setClawNamespace(undefined);
+    setOpenclawData(undefined);
+    setOpenclawStatus(OpenClawStatus.NEW);
+    setOpenclawUILink(undefined);
+    setOpenclawError(null);
   };
 
   useEffect(() => {
@@ -228,12 +511,24 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     fetchSegmentWriteKey();
   }, [registerApi, isProd]);
 
-  // Fetch Marketo webhook URL from UI config
+  // Fetch the marketo URL and the disabled integrations from the registration
+  // service.
   useEffect(() => {
     const fetchUIConfig = async () => {
-      const uiConfig = await registerApi.getUIConfig();
-      if (uiConfig.workatoWebHookURL) {
-        setMarketoWebhookURL(uiConfig.workatoWebHookURL);
+      try {
+        const uiConfig = await registerApi.getUIConfig();
+        if (uiConfig.workatoWebHookURL) {
+          setMarketoWebhookURL(uiConfig.workatoWebHookURL);
+        }
+        setDisabledIntegrations(
+          Array.isArray(uiConfig.disabledIntegrations)
+            ? uiConfig.disabledIntegrations
+            : [],
+        );
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Error fetching UI config:', err);
+        setDisabledIntegrations([]);
       }
     };
     fetchUIConfig();
@@ -243,7 +538,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   const pollInterval =
     status === 'provisioning' ? SHORT_INTERVAL : LONG_INTERVAL;
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (pollStatus) {
       const handle = setInterval(() => {
         fetchData(true);
@@ -254,7 +549,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pollStatus, pollInterval]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (userData?.defaultUserNamespace) {
       const handle = setInterval(
         getAAPData,
@@ -268,6 +563,32 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData, ansibleStatus]);
+
+  useEffect(() => {
+    if (userData?.defaultUserNamespace) {
+      getOpenClawData(userData.defaultUserNamespace);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData?.defaultUserNamespace]);
+
+  useEffect(() => {
+    if (
+      userData?.defaultUserNamespace &&
+      (openclawStatus === OpenClawStatus.PROVISIONING ||
+        openclawStatus === OpenClawStatus.TERMINATING)
+    ) {
+      const handle = setInterval(
+        getOpenClawData,
+        SHORT_INTERVAL,
+        userData.defaultUserNamespace,
+      );
+      return () => {
+        clearInterval(handle);
+      };
+    }
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData?.defaultUserNamespace, openclawStatus]);
 
   return (
     <SandboxContext.Provider
@@ -289,8 +610,16 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
         ansibleUILink,
         ansibleError,
         ansibleStatus,
+        openclawData,
+        openclawError,
+        openclawStatus,
+        openclawUILink,
+        handleOpenClawInstance,
+        deleteOpenClaw,
+        refetchOpenClaw: getOpenClawData,
         segmentTrackClick: segmentAnalytics.trackClick,
         marketoWebhookURL,
+        disabledIntegrations,
       }}
     >
       {children}

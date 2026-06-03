@@ -25,12 +25,14 @@ import {
 import { RegistrationService } from './RegistrationBackendClient';
 import { KubeAPIService } from './KubeBackendClient';
 import { AAPService } from './AnsibleBackendClient';
+import { OpenClawService } from './OpenClawBackendClient';
 import { SecureFetchApi } from './SecureFetchClient';
 
 export * from './SecureFetchClient';
 export * from './RegistrationBackendClient';
 export * from './KubeBackendClient';
 export * from './AnsibleBackendClient';
+export * from './OpenClawBackendClient';
 
 export const keycloakApiRef: ApiRef<
   OpenIdConnectApi &
@@ -56,4 +58,8 @@ export const kubeApiRef = createApiRef<KubeAPIService>({
 
 export const aapApiRef = createApiRef<AAPService>({
   id: 'plugin.sandbox.aap.api-ref',
+});
+
+export const openclawApiRef = createApiRef<OpenClawService>({
+  id: 'plugin.sandbox.openclaw.api-ref',
 });

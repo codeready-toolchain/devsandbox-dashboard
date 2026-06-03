@@ -202,11 +202,11 @@ describe('SandboxCatalogCard', () => {
         jest.advanceTimersByTime(1000);
         await Promise.resolve(); // allow awaiting the timer to flush
       }
-      // Wait for the Stop button to appear and all state updates to flush
+      // Wait for the Delete button to appear and all state updates to flush
       await waitFor(
         () => {
           expect(
-            screen.getByRole('button', { name: /Stop/i }),
+            screen.getByRole('button', { name: /Delete/i }),
           ).toBeInTheDocument();
         },
         { timeout: 6000 },

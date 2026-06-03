@@ -21,6 +21,7 @@ import { SandboxCatalogBanner } from '../SandboxCatalogBanner';
 import { useSandboxContext } from '../../../hooks/useSandboxContext';
 import { SignupData } from '../../../types/registration';
 import { AnsibleStatus } from '../../../utils/aap-utils';
+import { OpenClawStatus } from '../../../utils/openclaw-utils';
 
 const SandboxContext = React.createContext<{
   loading: boolean;
@@ -81,6 +82,13 @@ describe('SandboxCatalogBanner', () => {
       ansibleUIPassword: '',
       ansibleUILink: undefined,
       handleAAPInstance: jest.fn(),
+      openclawData: undefined,
+      openclawError: null,
+      openclawStatus: OpenClawStatus.NEW,
+      openclawUILink: undefined,
+      handleOpenClawInstance: jest.fn(),
+      deleteOpenClaw: jest.fn(),
+      refetchOpenClaw: jest.fn(),
       userStatus: '',
       ...contextValue,
     });

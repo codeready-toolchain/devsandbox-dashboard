@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import { StatusCondition } from './common';
+
 export type AAPItem = {
   status: {
     conditions: StatusCondition[];
@@ -33,11 +35,4 @@ export type AAPItem = {
 
 export type AAPData = {
   items: AAPItem[];
-};
-
-export type StatusCondition = {
-  type: string;
-  status: string;
-  reason: string;
-  message: string;
 };
