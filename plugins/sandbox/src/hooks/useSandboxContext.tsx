@@ -349,6 +349,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
           await openclawApi.createWorkspaceKubeconfig(
             userNamespace,
             targetNamespace,
+            userData!.apiEndpoint!,
           );
 
           // Step 8: LLM secret + Claw CR (with k8s credential + workspace)
