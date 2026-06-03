@@ -509,11 +509,19 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       openclawApi.cleanupWorkspaceEnvironment(userNamespace),
     ]);
 
-    for (const result of results) {
-      if (result.status === 'rejected') {
+    const failures = results.filter(
+      (r): r is PromiseRejectedResult => r.status === 'rejected',
+    );
+
+    if (failures.length > 0) {
+      for (const f of failures) {
         // eslint-disable-next-line no-console
-        console.error(result.reason);
+        console.error(f.reason);
       }
+      deletingOpenClaw.current = false;
+      setOpenclawStatus(OpenClawStatus.FAILED);
+      setOpenclawError(errorMessage(failures[0].reason));
+      return;
     }
 
     setClawNamespace(undefined);
