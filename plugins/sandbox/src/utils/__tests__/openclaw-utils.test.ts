@@ -404,10 +404,11 @@ describe('openclaw-utils', () => {
       expect(result.contexts[0].context.namespace).toBe('user-dev');
     });
 
-    it('omits CA data when not provided', () => {
+    it('sets insecure-skip-tls-verify when allowInsecure is true and no caData', () => {
       const result = JSON.parse(
         buildKubeconfig({
           server: 'https://api.cluster.example.com:6443',
+          allowInsecure: true,
           token: 'my-token',
           namespace: 'user-dev',
         }),
@@ -415,6 +416,38 @@ describe('openclaw-utils', () => {
 
       expect(result.clusters[0].cluster).not.toHaveProperty(
         'certificate-authority-data',
+      );
+      expect(result.clusters[0].cluster['insecure-skip-tls-verify']).toBe(true);
+    });
+
+    it('prefers caData over allowInsecure when both are provided', () => {
+      const result = JSON.parse(
+        buildKubeconfig({
+          server: 'https://api.cluster.example.com:6443',
+          caData: 'base64-ca-cert',
+          allowInsecure: true,
+          token: 'my-token',
+          namespace: 'user-dev',
+        }),
+      );
+
+      expect(result.clusters[0].cluster['certificate-authority-data']).toBe(
+        'base64-ca-cert',
+      );
+      expect(result.clusters[0].cluster).not.toHaveProperty(
+        'insecure-skip-tls-verify',
+      );
+    });
+
+    it('throws when neither caData nor allowInsecure is provided', () => {
+      expect(() =>
+        buildKubeconfig({
+          server: 'https://api.cluster.example.com:6443',
+          token: 'my-token',
+          namespace: 'user-dev',
+        }),
+      ).toThrow(
+        'buildKubeconfig: no caData provided and allowInsecure is not set',
       );
     });
   });

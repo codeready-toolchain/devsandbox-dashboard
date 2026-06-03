@@ -504,6 +504,7 @@ export class OpenClawBackendClient implements OpenClawService {
     const kubeconfigContent = buildKubeconfig({
       server,
       caData,
+      allowInsecure: !caData,
       token,
       namespace: devNamespace,
     });

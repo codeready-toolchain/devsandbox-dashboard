@@ -355,12 +355,20 @@ export const newTokenRequestObject = (): string =>
 export const buildKubeconfig = (opts: {
   server: string;
   caData?: string;
+  allowInsecure?: boolean;
   token: string;
   namespace: string;
 }): string => {
   const cluster: Record<string, unknown> = { server: opts.server };
   if (opts.caData) {
     cluster['certificate-authority-data'] = opts.caData;
+  } else if (opts.allowInsecure) {
+    cluster['insecure-skip-tls-verify'] = true;
+  } else {
+    throw new Error(
+      'buildKubeconfig: no caData provided and allowInsecure is not set. ' +
+        'Callers must either supply caData or explicitly set allowInsecure: true.',
+    );
   }
 
   const kubeconfig = {
