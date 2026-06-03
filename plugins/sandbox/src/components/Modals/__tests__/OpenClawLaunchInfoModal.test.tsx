@@ -174,8 +174,58 @@ describe('OpenClawLaunchInfoModal', () => {
     });
   });
 
-  it('does not show delete button when only one credential entry exists', () => {
+  it('does not show delete button when no provider is selected', () => {
     renderModal();
+
+    expect(
+      screen.queryByRole('button', { name: /Delete credential/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows delete button for a single selected provider', async () => {
+    renderModal();
+
+    const autocomplete = screen.getByLabelText(/Search providers/i);
+    fireEvent.mouseDown(autocomplete);
+
+    await waitFor(() => {
+      expect(screen.getByRole('listbox')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('option', { name: /Google Gemini/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Delete credential/i }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('resets to provider selection after deleting the only provider', async () => {
+    renderModal();
+
+    const autocomplete = screen.getByLabelText(/Search providers/i);
+    fireEvent.mouseDown(autocomplete);
+
+    await waitFor(() => {
+      expect(screen.getByRole('listbox')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('option', { name: /Google Gemini/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Delete credential/i }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Delete credential/i }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Search providers/i)).toBeInTheDocument();
+    });
 
     expect(
       screen.queryByRole('button', { name: /Delete credential/i }),
