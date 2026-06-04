@@ -576,28 +576,51 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   const pollInterval =
     status === 'provisioning' ? SHORT_INTERVAL : LONG_INTERVAL;
 
+  // Fetch signup data on a regular basis. We do it on a shorter interval when
+  // the sandbox is still not yet ready.
   useEffect(() => {
     if (pollStatus) {
-      const handle = setInterval(() => {
-        fetchData(true);
-      }, pollInterval);
-      return () => clearInterval(handle);
+      let cancelled = false;
+      const poll = async () => {
+        await fetchData(true);
+        if (!cancelled) {
+          timeoutId = setTimeout(poll, pollInterval);
+        }
+      };
+
+      let timeoutId = setTimeout(poll, pollInterval);
+      return () => {
+        cancelled = true;
+        clearTimeout(timeoutId);
+      };
     }
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pollStatus, pollInterval]);
 
+  // Poll for the Ansible Automation Platform data on a regular basis until
+  // the instance is ready to use.
   useEffect(() => {
-    if (userData?.defaultUserNamespace) {
-      const handle = setInterval(
-        getAAPData,
-        SHORT_INTERVAL,
-        userData?.defaultUserNamespace,
-      );
+    if (
+      userData?.defaultUserNamespace &&
+      ansibleStatus !== AnsibleStatus.READY
+    ) {
+      const namespace = userData.defaultUserNamespace;
+      let cancelled = false;
+      const poll = async () => {
+        await getAAPData(namespace);
+        if (!cancelled) {
+          timeoutId = setTimeout(poll, SHORT_INTERVAL);
+        }
+      };
+
+      let timeoutId = setTimeout(poll, SHORT_INTERVAL);
       return () => {
-        clearInterval(handle);
+        cancelled = true;
+        clearTimeout(timeoutId);
       };
     }
+
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData, ansibleStatus]);
@@ -616,13 +639,19 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
         openclawStatus === OpenClawStatus.TERMINATING ||
         openclawStatus === OpenClawStatus.DELETING)
     ) {
-      const handle = setInterval(
-        getOpenClawData,
-        SHORT_INTERVAL,
-        userData.defaultUserNamespace,
-      );
+      const namespace = userData.defaultUserNamespace;
+      let cancelled = false;
+      const poll = async () => {
+        await getOpenClawData(namespace);
+        if (!cancelled) {
+          timeoutId = setTimeout(poll, SHORT_INTERVAL);
+        }
+      };
+
+      let timeoutId = setTimeout(poll, SHORT_INTERVAL);
       return () => {
-        clearInterval(handle);
+        cancelled = true;
+        clearTimeout(timeoutId);
       };
     }
     return undefined;
