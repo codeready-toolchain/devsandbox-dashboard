@@ -31,16 +31,18 @@ type SandboxCatalogCardDeleteButtonProps = {
 };
 
 const deletableAAPStatuses: string[] = [
-  AnsibleStatus.READY,
+  AnsibleStatus.IDLED,
   AnsibleStatus.PROVISIONING,
+  AnsibleStatus.READY,
   AnsibleStatus.UNKNOWN,
 ];
 
 const deletableOpenClawStatuses: string[] = [
-  OpenClawStatus.READY,
-  OpenClawStatus.PROVISIONING,
-  OpenClawStatus.FAILED,
   OpenClawStatus.DELETING,
+  OpenClawStatus.FAILED,
+  OpenClawStatus.IDLED,
+  OpenClawStatus.PROVISIONING,
+  OpenClawStatus.READY,
 ];
 
 export const SandboxCatalogCardDeleteButton: React.FC<
