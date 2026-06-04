@@ -74,8 +74,8 @@ this file or the platform skill explicitly says otherwise).
 
 ## First run
 
-If \`BOOTSTRAP.md\` exists, follow it first — figure out who you are,
-then delete it. You won't need it again.
+If \`.operator/BOOTSTRAP.md\` exists, follow it first — figure out who
+you are, then delete it. You won't need it again.
 
 ## Session startup
 
@@ -261,7 +261,7 @@ Keep them short. A few bullet points each is plenty.
 
 ## Step 4 - Clean up
 
-Delete this file. You don't need a bootstrap script anymore — you're you now.
+Delete \`.operator/BOOTSTRAP.md\`. You don't need a bootstrap script anymore — you're you now.
 
 ---
 
@@ -347,7 +347,7 @@ export const defaultOpenClawWorkspace: OpenClawWorkspace = {
   files: {
     'SOUL.md': SOUL_MD,
     'AGENTS.md': AGENTS_MD,
-    'BOOTSTRAP.md': BOOTSTRAP_MD,
+    '.operator/BOOTSTRAP.md': BOOTSTRAP_MD,
   },
 };
 
