@@ -581,6 +581,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     if (pollStatus) {
       let cancelled = false;
+      let timeoutId: ReturnType<typeof setTimeout>;
       const poll = async () => {
         await fetchData(true);
         if (!cancelled) {
@@ -588,7 +589,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       };
 
-      let timeoutId = setTimeout(poll, pollInterval);
+      timeoutId = setTimeout(poll, pollInterval);
       return () => {
         cancelled = true;
         clearTimeout(timeoutId);
@@ -607,6 +608,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     ) {
       const namespace = userData.defaultUserNamespace;
       let cancelled = false;
+      let timeoutId: ReturnType<typeof setTimeout>;
       const poll = async () => {
         await getAAPData(namespace);
         if (!cancelled) {
@@ -614,7 +616,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       };
 
-      let timeoutId = setTimeout(poll, SHORT_INTERVAL);
+      timeoutId = setTimeout(poll, SHORT_INTERVAL);
       return () => {
         cancelled = true;
         clearTimeout(timeoutId);
@@ -641,6 +643,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     ) {
       const namespace = userData.defaultUserNamespace;
       let cancelled = false;
+      let timeoutId: ReturnType<typeof setTimeout>;
       const poll = async () => {
         await getOpenClawData(namespace);
         if (!cancelled) {
@@ -648,7 +651,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       };
 
-      let timeoutId = setTimeout(poll, SHORT_INTERVAL);
+      timeoutId = setTimeout(poll, SHORT_INTERVAL);
       return () => {
         cancelled = true;
         clearTimeout(timeoutId);
