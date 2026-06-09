@@ -64,7 +64,16 @@ const gcpFields = (
     label: 'Service Account Key',
     type: 'serviceAccountJson',
     required: true,
-    placeholder: 'Paste your service account JSON key',
+    placeholder: `{
+  "type": "service_account",
+  "project_id": "your-gcp-project-id",
+  "private_key_id": "...",
+  "private_key": "-----BEGIN PRIVATE KEY----- ...",
+  "client_email": "name@your-gcp-project-id.iam.gserviceaccount.com",
+  "client_id": "...",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token"
+}`,
     multiline: true,
   },
   {
