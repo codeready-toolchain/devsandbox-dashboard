@@ -82,7 +82,7 @@ const gcpFields = (regionSuggestions: string[]): ProviderCredentialField[] => [
 ];
 
 export const PROVIDERS: ProviderConfig[] = [
-  // Tier 1 — Primary options
+  // Primary options.
   {
     id: 'gemini',
     name: 'Google Gemini',
@@ -122,7 +122,7 @@ export const PROVIDERS: ProviderConfig[] = [
     fields: [apiKeyField()],
   },
 
-  // Tier 2 — Advanced options
+  // Advanced options.
   {
     id: 'openrouter',
     name: 'OpenRouter',
@@ -133,9 +133,11 @@ export const PROVIDERS: ProviderConfig[] = [
     keyUrl: 'https://openrouter.ai/keys',
     fields: [apiKeyField()],
   },
+
+  // Vertex AI.
   {
     id: 'google-vertex',
-    name: 'Google Vertex AI',
+    name: 'Vertex AI - Google',
     provider: 'google',
     category: 'advanced',
     credentialType: 'gcp',
@@ -150,7 +152,7 @@ export const PROVIDERS: ProviderConfig[] = [
   },
   {
     id: 'anthropic-vertex',
-    name: 'Anthropic Claude via Vertex AI',
+    name: 'Vertex AI - Anthropic',
     provider: 'anthropic',
     category: 'advanced',
     credentialType: 'gcp',
@@ -158,7 +160,7 @@ export const PROVIDERS: ProviderConfig[] = [
     fields: gcpFields(['us-east5', 'europe-west1', 'europe-west4']),
   },
 
-  // Custom / Self-Hosted
+  // Custom / Self-Hosted.
   {
     id: 'custom',
     name: 'Custom / Self-Hosted',
