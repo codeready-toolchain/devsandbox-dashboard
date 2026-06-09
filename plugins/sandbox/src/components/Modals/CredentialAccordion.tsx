@@ -114,7 +114,7 @@ const accordionSx = {
   border: '1px solid',
   borderColor: 'divider',
   borderRadius: '8px !important',
-  overflow: 'hidden',
+  overflow: 'visible',
   '&.Mui-expanded': { margin: '0 0 8px 0' },
 };
 
@@ -210,18 +210,8 @@ export const CredentialAccordion = forwardRef<
 
   const handleProviderSelect = useCallback(
     (entryId: string, provider: ProviderConfig | null) => {
-      const defaults: Record<string, string> = {};
-      if (provider) {
-        for (const field of provider.fields) {
-          if (field.defaultValue) {
-            defaults[field.key] = field.defaultValue;
-          }
-        }
-      }
       setEntries(prev =>
-        prev.map(e =>
-          e.id === entryId ? { ...e, provider, values: defaults } : e,
-        ),
+        prev.map(e => (e.id === entryId ? { ...e, provider, values: {} } : e)),
       );
       if (provider) {
         setExpandedIds(prev => new Set([...prev, entryId]));

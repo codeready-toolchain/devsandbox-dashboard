@@ -55,10 +55,7 @@ const apiKeyField = (placeholder?: string): ProviderCredentialField => ({
   placeholder: placeholder ?? 'Enter your API key',
 });
 
-const gcpFields = (
-  defaultRegion: string,
-  regionSuggestions: string[],
-): ProviderCredentialField[] => [
+const gcpFields = (regionSuggestions: string[]): ProviderCredentialField[] => [
   {
     key: 'sa-key.json',
     label: 'Service Account Key',
@@ -79,8 +76,7 @@ const gcpFields = (
     label: 'Region',
     type: 'combobox',
     required: true,
-    placeholder: defaultRegion,
-    defaultValue: defaultRegion,
+    placeholder: 'Select or type your region',
     options: regionSuggestions,
   },
 ];
@@ -144,7 +140,7 @@ export const PROVIDERS: ProviderConfig[] = [
     category: 'advanced',
     credentialType: 'gcp',
     keyUrl: 'https://console.cloud.google.com/iam-admin/serviceaccounts',
-    fields: gcpFields('us-central1', [
+    fields: gcpFields([
       'global',
       'us-central1',
       'us-east4',
@@ -159,7 +155,7 @@ export const PROVIDERS: ProviderConfig[] = [
     category: 'advanced',
     credentialType: 'gcp',
     keyUrl: 'https://console.cloud.google.com/vertex-ai/publishers/anthropic',
-    fields: gcpFields('us-east5', ['us-east5', 'europe-west1', 'europe-west4']),
+    fields: gcpFields(['us-east5', 'europe-west1', 'europe-west4']),
   },
 
   // Custom / Self-Hosted
