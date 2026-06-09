@@ -90,6 +90,16 @@ describe('SandboxCatalogCardDeleteButton', () => {
     expect(deleteButton).toBeInTheDocument();
   });
 
+  it('shows Delete when AAP is idled', () => {
+    mockUseSandboxContext.mockReturnValue({
+      ansibleStatus: AnsibleStatus.IDLED,
+    } as any);
+    renderButton();
+    const deleteButton = screen.getByRole('button', { name: /Delete/i });
+    expect(deleteButton).toBeInTheDocument();
+    expect(deleteButton).not.toBeDisabled();
+  });
+
   it('calls HandleDeleteButtonClick when clicked', () => {
     renderButton();
     const deleteButton = screen.getByRole('button', { name: /Delete/i });
@@ -126,6 +136,17 @@ describe('SandboxCatalogCardDeleteButton', () => {
       mockUseSandboxContext.mockReturnValue({
         ansibleStatus: AnsibleStatus.NEW,
         openclawStatus: OpenClawStatus.READY,
+      } as any);
+      renderButton({ id: Product.OPENCLAW });
+      const button = screen.getByRole('button', { name: /Delete/i });
+      expect(button).toBeInTheDocument();
+      expect(button).not.toBeDisabled();
+    });
+
+    it('shows Delete button for OpenClaw in IDLED status', () => {
+      mockUseSandboxContext.mockReturnValue({
+        ansibleStatus: AnsibleStatus.NEW,
+        openclawStatus: OpenClawStatus.IDLED,
       } as any);
       renderButton({ id: Product.OPENCLAW });
       const button = screen.getByRole('button', { name: /Delete/i });
