@@ -1,32 +1,10 @@
 import React from 'react';
-import { ProviderConfig } from '../../../utils/openclaw-providers';
+import { getProviderById } from '../../../utils/openclaw-providers';
 import { createTheme, ThemeProvider } from '@mui/material';
 import ProviderCredentialForm from '../ProviderCredentialForm';
 import { render, screen } from '@testing-library/react';
 
-const gcpProvider: ProviderConfig = {
-  id: 'test-vertex',
-  name: 'Test Vertex',
-  provider: 'google',
-  category: 'advanced',
-  credentialType: 'gcp',
-  fields: [
-    {
-      key: 'sa-key.json',
-      label: 'Service Account Key',
-      type: 'serviceAccountJson',
-      required: true,
-      placeholder: 'Paste your service account JSON key',
-      multiline: true,
-    },
-    {
-      key: 'region',
-      label: 'Region',
-      type: 'text',
-      required: true,
-    },
-  ],
-};
+const gcpProvider = getProviderById('google-vertex')!;
 
 const theme = createTheme();
 
@@ -49,10 +27,9 @@ const renderForm = (provider = gcpProvider) => {
 
 it('keeps the placeholder visible when ServiceAccountJsonField is empty', () => {
   renderForm();
-  const textarea = screen.getByPlaceholderText(
-    'Paste your service account JSON key',
-  );
-  expect(textarea).toBeInTheDocument();
+  const saKeyField = gcpProvider.fields.find(f => f.key === 'sa-key.json')!;
+  const textarea = screen.getByLabelText('Service Account Key');
+  expect(textarea).toHaveAttribute('placeholder', saKeyField.placeholder);
 
   const label = screen.getByText('Service Account Key');
   expect(label).toHaveAttribute('data-shrink', 'true');
