@@ -199,26 +199,22 @@ describe('AccessCodeInputModal', () => {
     renderComponent();
 
     const inputs = screen.getAllByRole('textbox');
+    const code = 'ABCDE';
 
-    // Fill all inputs by typing once in the first input - auto-focus will handle the rest
-    await user.click(inputs[0]);
-    await user.type(inputs[0], 'ABCDE'); // Type 5 characters to fill all 5 inputs
+    for (let i = 0; i < inputs.length; i++) {
+      await user.type(inputs[i], code[i]);
+    }
 
-    // Wait for all inputs to be filled
     await waitFor(() => {
       inputs.forEach((input, index) => {
-        expect(input).toHaveValue(String.fromCharCode(65 + index)); // A, B, C, D, E
+        expect(input).toHaveValue(code[index]);
       });
     });
 
-    // Wait for the button to become enabled with longer timeout
-    await waitFor(
-      () => {
-        const startTrialButton = screen.getByText('Start trial');
-        expect(startTrialButton).not.toBeDisabled();
-      },
-      { timeout: 5000 },
-    );
+    await waitFor(() => {
+      const startTrialButton = screen.getByText('Start trial');
+      expect(startTrialButton).not.toBeDisabled();
+    });
   });
 
   it('calls verifyActivationCode with correct code when Start trial is clicked', async () => {
@@ -230,26 +226,21 @@ describe('AccessCodeInputModal', () => {
     const inputs = screen.getAllByRole('textbox');
     const testCode = 'ABCDE';
 
-    // Fill all inputs by typing the code in the first input - auto-focus will distribute
-    await user.click(inputs[0]);
-    await user.type(inputs[0], testCode);
+    for (let i = 0; i < inputs.length; i++) {
+      await user.type(inputs[i], testCode[i]);
+    }
 
-    // Wait for all inputs to be filled
     await waitFor(() => {
       inputs.forEach((input, index) => {
         expect(input).toHaveValue(testCode[index]);
       });
     });
 
-    // Wait for button to be enabled before clicking with longer timeout
-    const startTrialButton = await waitFor(
-      () => {
-        const button = screen.getByText('Start trial');
-        expect(button).not.toBeDisabled();
-        return button;
-      },
-      { timeout: 5000 },
-    );
+    const startTrialButton = await waitFor(() => {
+      const button = screen.getByText('Start trial');
+      expect(button).not.toBeDisabled();
+      return button;
+    });
 
     await user.click(startTrialButton);
 
@@ -271,26 +262,21 @@ describe('AccessCodeInputModal', () => {
 
     const inputs = screen.getAllByRole('textbox');
 
-    // Fill all inputs by typing the code in the first input - auto-focus will distribute
-    await user.click(inputs[0]);
-    await user.type(inputs[0], 'AAAAA');
+    for (const input of inputs) {
+      await user.type(input, 'A');
+    }
 
-    // Wait for all inputs to be filled
     await waitFor(() => {
       inputs.forEach(input => {
         expect(input).toHaveValue('A');
       });
     });
 
-    // Wait for button to be enabled before clicking with longer timeout
-    const startTrialButton = await waitFor(
-      () => {
-        const button = screen.getByText('Start trial');
-        expect(button).not.toBeDisabled();
-        return button;
-      },
-      { timeout: 5000 },
-    );
+    const startTrialButton = await waitFor(() => {
+      const button = screen.getByText('Start trial');
+      expect(button).not.toBeDisabled();
+      return button;
+    });
 
     await user.click(startTrialButton);
 
@@ -333,9 +319,9 @@ describe('AccessCodeInputModal', () => {
 
     const inputs = screen.getAllByRole('textbox');
 
-    // Fill all inputs by typing the code in the first input - auto-focus will distribute
-    await user.click(inputs[0]);
-    await user.type(inputs[0], 'AAAAA');
+    for (const input of inputs) {
+      await user.type(input, 'A');
+    }
 
     // Wait for all inputs to be filled
     await waitFor(() => {
@@ -344,15 +330,12 @@ describe('AccessCodeInputModal', () => {
       });
     });
 
-    // Wait for button to be enabled with a longer timeout
-    const startTrialButton = await waitFor(
-      () => {
-        const button = screen.getByText('Start trial');
-        expect(button).not.toBeDisabled();
-        return button;
-      },
-      { timeout: 5000 },
-    );
+    // Wait for button to be enabled
+    const startTrialButton = await waitFor(() => {
+      const button = screen.getByText('Start trial');
+      expect(button).not.toBeDisabled();
+      return button;
+    });
 
     await user.click(startTrialButton);
 
