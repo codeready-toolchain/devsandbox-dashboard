@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 import React, { useState } from 'react';
+import Ajv, { JSONSchemaType } from 'ajv';
+import addFormats from 'ajv-formats';
 import Autocomplete from '@mui/material/Autocomplete';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -26,6 +28,7 @@ import {
   ProviderConfig,
   ProviderCredentialField,
 } from '../../utils/openclaw-providers';
+import { JsonCredentialSchema } from '../../types/openclaw';
 
 const API_FORMAT_LABELS: Record<string, string> = {
   'openai-completions': 'OpenAI Completions',
@@ -80,10 +83,43 @@ const ApiKeyField: React.FC<{
 };
 
 /**
- * Special text field for the service accounts which has a palceholder always
- * enabled to help users determine which credential they need to use.
- * @param param0 parameters of the component.
- * @returns a "Service Account JSON field"
+ * Defines the expected JSON schema for the Vertex service accounts.
+ */
+const schema: JSONSchemaType<JsonCredentialSchema> = {
+  type: 'object',
+  properties: {
+    type: { type: 'string', enum: ['authorized_user', 'service_account'] },
+    project_id: { type: 'string' },
+    private_key_id: { type: 'string' },
+    private_key: { type: 'string' },
+    client_email: { type: 'string', format: 'email' },
+    client_id: { type: 'string' },
+    auth_uri: { type: 'string', format: 'uri' },
+    token_uri: { type: 'string', format: 'uri' },
+  },
+  required: [
+    'type',
+    'project_id',
+    'private_key_id',
+    'private_key',
+    'client_email',
+    'client_id',
+    'auth_uri',
+    'token_uri',
+  ],
+};
+
+/**
+ * Instantiate Ajv once, along with the schema validator so that we do not
+ * recompile the schema every time a component is rendered.
+ */
+const ajv = new Ajv({ allErrors: true, strict: false });
+addFormats(ajv);
+const schemaValidator = ajv.compile(schema);
+
+/**
+ * Special text field for service accounts with a placeholder always
+ * visible to help users determine which credential they need to use.
  */
 const ServiceAccountJsonField: React.FC<{
   field: ProviderCredentialField;
@@ -91,29 +127,87 @@ const ServiceAccountJsonField: React.FC<{
   error: boolean;
   onChange: (value: string) => void;
 }> = ({ field, value, error, onChange }) => {
-  return (
-    <>
-      <TextField
-        variant="filled"
-        fullWidth
-        label={field.label}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        error={error}
-        helperText={
-          error
-            ? 'Valid JSON with type "service_account" or "authorized_user" is required'
-            : ''
+  const [errorMessages, setErrorMessages] = React.useState<string[]>([]);
+
+  const handleValidation = (
+    event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,
+  ) => {
+    const raw = event.target.value;
+    onChange(raw);
+
+    if (raw === '') {
+      setErrorMessages([]);
+      return;
+    }
+
+    let data: JsonCredentialSchema;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      setErrorMessages(['Please input valid JSON']);
+      return;
+    }
+
+    if (!schemaValidator(data)) {
+      if (schemaValidator.errors) {
+        const errMsgs: string[] = [];
+        for (const err of schemaValidator.errors) {
+          switch (err.keyword) {
+            case 'required':
+              errMsgs.push(
+                `Property "${err.params.missingProperty}" missing in the JSON`,
+              );
+              break;
+            case 'enum':
+              errMsgs.push(
+                `The "type" property must have the "authorized_user" or "service_account" values`,
+              );
+              break;
+            case 'format':
+              switch (err.params.format) {
+                case 'email':
+                  errMsgs.push(`Invalid email format specified`);
+                  break;
+                case 'uri':
+                  errMsgs.push(
+                    `Invalid URI specified in "${err.instancePath.slice(1)}"`,
+                  );
+                  break;
+              }
+              break;
+          }
         }
-        placeholder={field.placeholder}
-        multiline
-        minRows={11}
-        maxRows={11}
-        InputLabelProps={{ shrink: true }}
-        InputProps={{ disableUnderline: true }}
-        size="small"
-      />
-    </>
+        setErrorMessages(errMsgs);
+        return;
+      }
+    }
+
+    setErrorMessages([]);
+  };
+
+  return (
+    <TextField
+      variant="filled"
+      fullWidth
+      label={field.label}
+      value={value}
+      onChange={handleValidation}
+      error={error || errorMessages.length > 0}
+      helperText={
+        errorMessages.length > 0
+          ? errorMessages.join('. ')
+          : error
+          ? `${field.label} is required`
+          : ''
+      }
+      placeholder={field.placeholder}
+      multiline
+      minRows={11}
+      maxRows={11}
+      InputLabelProps={{ shrink: true }}
+      InputProps={{ disableUnderline: true }}
+      size="small"
+    />
   );
 };
 

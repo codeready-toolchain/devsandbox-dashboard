@@ -34,7 +34,12 @@ import {
   ROLEBINDING_RBAC_EDIT_NAME,
   SA_NAME,
 } from '../utils/openclaw-utils';
-import { OpenClawItem, OpenClawWorkspace, SpaceRequestItem } from '../types';
+import {
+  JsonCredentialSchema,
+  OpenClawItem,
+  OpenClawWorkspace,
+  SpaceRequestItem,
+} from '../types';
 import { AddedCredential, ProviderConfig } from '../utils/openclaw-providers';
 import { SecureFetchApi } from './SecureFetchClient';
 
@@ -207,12 +212,22 @@ export class OpenClawBackendClient implements OpenClawService {
     };
 
     if (config.credentialType === 'gcp') {
+      const saKeyContent = cred.values['sa-key.json'];
+      let parsed: JsonCredentialSchema;
+      try {
+        parsed = JSON.parse(saKeyContent);
+      } catch {
+        throw new Error(
+          `Invalid service account JSON for provider "${config.id}"`,
+        );
+      }
+
       return {
         ...base,
         name: config.id === 'anthropic-vertex' ? 'anthropic-vertex' : 'gemini',
         provider: config.provider,
         gcp: {
-          project: cred.values['project-id'] ?? '',
+          project: parsed.project_id ?? '',
           location: cred.values['region'] ?? '',
         },
       };
