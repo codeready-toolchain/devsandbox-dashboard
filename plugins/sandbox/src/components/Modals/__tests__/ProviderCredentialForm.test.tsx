@@ -19,6 +19,13 @@ const validServiceAccount = JSON.stringify({
   token_uri: 'https://oauth2.googleapis.com/token',
 });
 
+const validAuthorizedUser = JSON.stringify({
+  type: 'authorized_user',
+  client_id: 'my-client-id.apps.googleusercontent.com',
+  client_secret: 'secret-123',
+  refresh_token: '1//refresh-token',
+});
+
 const renderForm = (
   overrides: {
     values?: Record<string, string>;
@@ -58,23 +65,25 @@ describe('ServiceAccountJsonField validation', () => {
     const textArea = screen.getByLabelText('Service Account Key');
     fireEvent.change(textArea, { target: { value: '{not valid json}' } });
 
-    expect(screen.getByText('Please input valid JSON')).toBeInTheDocument();
+    expect(
+      screen.getByText('Please input valid JSON.'),
+    ).toBeInTheDocument();
   });
 
-  it('shows error when required properties are missing', () => {
+  it('shows error when the "type" property is missing', () => {
     renderForm();
 
     const textArea = screen.getByLabelText('Service Account Key');
     fireEvent.change(textArea, {
-      target: { value: JSON.stringify({ type: 'service_account' }) },
+      target: { value: JSON.stringify({ project_id: 'my-project' }) },
     });
 
     expect(
-      screen.getByText(/Property "project_id" missing in the JSON/),
+      screen.getByText(/The "type" property is required/),
     ).toBeInTheDocument();
   });
 
-  it('shows error for invalid type enum value', () => {
+  it('shows error for invalid type value', () => {
     renderForm();
 
     const textArea = screen.getByLabelText('Service Account Key');
@@ -84,8 +93,33 @@ describe('ServiceAccountJsonField validation', () => {
 
     expect(
       screen.getByText(
-        /must have the "authorized_user" or "service_account" values/,
+        /The "type" property must be "authorized_user" or "service_account"/,
       ),
+    ).toBeInTheDocument();
+  });
+
+  it('shows error for a single missing required property', () => {
+    renderForm();
+
+    const textArea = screen.getByLabelText('Service Account Key');
+    const { project_id: _, ...rest } = JSON.parse(validServiceAccount);
+    fireEvent.change(textArea, { target: { value: JSON.stringify(rest) } });
+
+    expect(
+      screen.getByText(/The "project_id" property is required/),
+    ).toBeInTheDocument();
+  });
+
+  it('shows error for multiple missing required properties', () => {
+    renderForm();
+
+    const textArea = screen.getByLabelText('Service Account Key');
+    fireEvent.change(textArea, {
+      target: { value: JSON.stringify({ type: 'service_account' }) },
+    });
+
+    expect(
+      screen.getByText(/properties are required/),
     ).toBeInTheDocument();
   });
 
@@ -98,7 +132,7 @@ describe('ServiceAccountJsonField validation', () => {
     fireEvent.change(textArea, { target: { value: JSON.stringify(invalid) } });
 
     expect(
-      screen.getByText('Invalid email format specified'),
+      screen.getByText(/Invalid email format specified/),
     ).toBeInTheDocument();
   });
 
@@ -115,18 +149,36 @@ describe('ServiceAccountJsonField validation', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows combined errors for missing properties and invalid formats', () => {
+    renderForm();
+
+    const textArea = screen.getByLabelText('Service Account Key');
+    const invalid = JSON.parse(validServiceAccount);
+    delete invalid.project_id;
+    invalid.client_email = 'not-an-email';
+    fireEvent.change(textArea, { target: { value: JSON.stringify(invalid) } });
+
+    const helperText = screen.getByText(
+      /The "project_id" property is required/,
+    );
+    expect(helperText).toBeInTheDocument();
+    expect(helperText.textContent).toContain('Invalid email format specified');
+  });
+
   it('clears errors when valid JSON is entered after invalid input', () => {
     renderForm();
 
     const textArea = screen.getByLabelText('Service Account Key');
     fireEvent.change(textArea, { target: { value: '{ bad' } });
-    expect(screen.getByText('Please input valid JSON')).toBeInTheDocument();
+    expect(screen.getByText('Please input valid JSON.')).toBeInTheDocument();
 
     fireEvent.change(textArea, { target: { value: validServiceAccount } });
     expect(
-      screen.queryByText('Please input valid JSON'),
+      screen.queryByText('Please input valid JSON.'),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText(/missing in the JSON/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/property is required/),
+    ).not.toBeInTheDocument();
   });
 
   it('shows no error for valid service account JSON', () => {
@@ -135,9 +187,127 @@ describe('ServiceAccountJsonField validation', () => {
     const textArea = screen.getByLabelText('Service Account Key');
     fireEvent.change(textArea, { target: { value: validServiceAccount } });
 
-    expect(screen.queryByText(/missing in the JSON/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/property is required/),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByText('Please input valid JSON'),
     ).not.toBeInTheDocument();
+  });
+
+  it('shows no error for valid authorized_user JSON', () => {
+    renderForm();
+
+    const textArea = screen.getByLabelText('Service Account Key');
+    fireEvent.change(textArea, { target: { value: validAuthorizedUser } });
+
+    expect(
+      screen.queryByText(/property is required/),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Please input valid JSON'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('validates authorized_user required fields', () => {
+    renderForm();
+
+    const textArea = screen.getByLabelText('Service Account Key');
+    fireEvent.change(textArea, {
+      target: {
+        value: JSON.stringify({ type: 'authorized_user', client_id: 'id' }),
+      },
+    });
+
+    expect(
+      screen.getByText(/properties are required/),
+    ).toBeInTheDocument();
+  });
+
+  it('clears errors when field is emptied', () => {
+    renderForm();
+
+    const textArea = screen.getByLabelText('Service Account Key');
+    fireEvent.change(textArea, { target: { value: '{ bad' } });
+    expect(screen.getByText('Please input valid JSON.')).toBeInTheDocument();
+
+    fireEvent.change(textArea, { target: { value: validServiceAccount } });
+    expect(
+      screen.queryByText('Please input valid JSON.'),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(textArea, { target: { value: '' } });
+    expect(
+      screen.queryByText(/property is required/),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Please input valid JSON.'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('accepts authorized_user with optional quota_project_id', () => {
+    renderForm();
+
+    const textArea = screen.getByLabelText('Service Account Key');
+    const withQuota = JSON.stringify({
+      type: 'authorized_user',
+      client_id: 'my-client-id.apps.googleusercontent.com',
+      client_secret: 'secret-123',
+      refresh_token: '1//refresh-token',
+      quota_project_id: 'my-quota-project',
+    });
+    fireEvent.change(textArea, { target: { value: withQuota } });
+
+    expect(
+      screen.queryByText(/property is required/),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Please input valid JSON'),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe('project-id extraction from credentials JSON', () => {
+  it('sets project-id when a valid service_account JSON is entered', () => {
+    const { onChange } = renderForm();
+
+    const textArea = screen.getByLabelText('Service Account Key');
+    fireEvent.change(textArea, { target: { value: validServiceAccount } });
+
+    expect(onChange).toHaveBeenCalledWith('project-id', 'my-project');
+  });
+
+  it('clears project-id when an authorized_user JSON is entered', () => {
+    const { onChange } = renderForm({
+      values: { 'project-id': 'stale-project' },
+    });
+
+    const textArea = screen.getByLabelText('Service Account Key');
+    fireEvent.change(textArea, { target: { value: validAuthorizedUser } });
+
+    expect(onChange).toHaveBeenCalledWith('project-id', '');
+  });
+
+  it('clears project-id when invalid JSON is entered', () => {
+    const { onChange } = renderForm({
+      values: { 'project-id': 'stale-project' },
+    });
+
+    const textArea = screen.getByLabelText('Service Account Key');
+    fireEvent.change(textArea, { target: { value: '{not valid' } });
+
+    expect(onChange).toHaveBeenCalledWith('project-id', '');
+  });
+
+  it('clears stale project-id when switching from service_account to authorized_user', () => {
+    const { onChange } = renderForm();
+
+    const textArea = screen.getByLabelText('Service Account Key');
+    fireEvent.change(textArea, { target: { value: validServiceAccount } });
+    expect(onChange).toHaveBeenCalledWith('project-id', 'my-project');
+
+    onChange.mockClear();
+    fireEvent.change(textArea, { target: { value: validAuthorizedUser } });
+    expect(onChange).toHaveBeenCalledWith('project-id', '');
   });
 });

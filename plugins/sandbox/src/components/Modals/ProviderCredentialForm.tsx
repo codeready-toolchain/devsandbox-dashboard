@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 import React, { useState } from 'react';
-import Ajv, { JSONSchemaType } from 'ajv';
+import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import Autocomplete from '@mui/material/Autocomplete';
 import IconButton from '@mui/material/IconButton';
@@ -85,27 +85,43 @@ const ApiKeyField: React.FC<{
 /**
  * Defines the expected JSON schema for the Vertex service accounts.
  */
-const schema: JSONSchemaType<JsonCredentialSchema> = {
-  type: 'object',
-  properties: {
-    type: { type: 'string', enum: ['authorized_user', 'service_account'] },
-    project_id: { type: 'string' },
-    private_key_id: { type: 'string' },
-    private_key: { type: 'string' },
-    client_email: { type: 'string', format: 'email' },
-    client_id: { type: 'string' },
-    auth_uri: { type: 'string', format: 'uri' },
-    token_uri: { type: 'string', format: 'uri' },
-  },
-  required: [
-    'type',
-    'project_id',
-    'private_key_id',
-    'private_key',
-    'client_email',
-    'client_id',
-    'auth_uri',
-    'token_uri',
+const schema = {
+  discriminator: { propertyName: 'type' },
+  oneOf: [
+    {
+      type: 'object',
+      properties: {
+        type: { type: 'string', const: 'authorized_user' },
+        client_id: { type: 'string' },
+        client_secret: { type: 'string' },
+        refresh_token: { type: 'string' },
+        quota_project_id: { type: 'string' },
+      },
+      required: ['type', 'client_id', 'client_secret', 'refresh_token'],
+    },
+    {
+      type: 'object',
+      properties: {
+        type: { type: 'string', const: 'service_account' },
+        project_id: { type: 'string' },
+        private_key_id: { type: 'string' },
+        private_key: { type: 'string' },
+        client_email: { type: 'string', format: 'email' },
+        client_id: { type: 'string' },
+        auth_uri: { type: 'string', format: 'uri' },
+        token_uri: { type: 'string', format: 'uri' },
+      },
+      required: [
+        'type',
+        'project_id',
+        'private_key_id',
+        'private_key',
+        'client_email',
+        'client_id',
+        'auth_uri',
+        'token_uri',
+      ],
+    },
   ],
 };
 
@@ -113,9 +129,9 @@ const schema: JSONSchemaType<JsonCredentialSchema> = {
  * Instantiate Ajv once, along with the schema validator so that we do not
  * recompile the schema every time a component is rendered.
  */
-const ajv = new Ajv({ allErrors: true, strict: false });
+const ajv = new Ajv({ allErrors: true, discriminator: true, strict: false });
 addFormats(ajv);
-const schemaValidator = ajv.compile(schema);
+const schemaValidator = ajv.compile<JsonCredentialSchema>(schema);
 
 /**
  * Special text field for service accounts with a placeholder always
@@ -150,26 +166,39 @@ const ServiceAccountJsonField: React.FC<{
 
     if (!schemaValidator(data)) {
       if (schemaValidator.errors) {
-        const errMsgs: string[] = [];
+        const missingRequiredProperties: string[] = [];
+        const invalidFormatErrMsgs: string[] = [];
+        const credType = (data as Record<string, unknown>).type;
+
+        // Short circuit for when a "type" is not found in the provided JSON
+        // object. This is to prevent the UI showing all the
+        // "required property" errors that otherwise show up from both the
+        // "authorized user" and "service account" structures.
+        if (credType === undefined) {
+          setErrorMessages(['The "type" property is required']);
+          return;
+        } else if (
+          credType !== 'authorized_user' &&
+          credType !== 'service_account'
+        ) {
+          setErrorMessages([
+            'The "type" property must be "authorized_user" or "service_account"',
+          ]);
+          return;
+        }
+
         for (const err of schemaValidator.errors) {
           switch (err.keyword) {
             case 'required':
-              errMsgs.push(
-                `Property "${err.params.missingProperty}" missing in the JSON`,
-              );
-              break;
-            case 'enum':
-              errMsgs.push(
-                `The "type" property must have the "authorized_user" or "service_account" values`,
-              );
+              missingRequiredProperties.push(err.params.missingProperty);
               break;
             case 'format':
               switch (err.params.format) {
                 case 'email':
-                  errMsgs.push(`Invalid email format specified`);
+                  invalidFormatErrMsgs.push(`Invalid email format specified`);
                   break;
                 case 'uri':
-                  errMsgs.push(
+                  invalidFormatErrMsgs.push(
                     `Invalid URI specified in "${err.instancePath.slice(1)}"`,
                   );
                   break;
@@ -177,6 +206,31 @@ const ServiceAccountJsonField: React.FC<{
               break;
           }
         }
+
+        // Prepare and format the "required properties" error.
+        const errMsgs: string[] = [];
+        if (missingRequiredProperties.length == 1) {
+          errMsgs.push(
+            `The "${missingRequiredProperties[0]}" property is required.`,
+          );
+        } else if (missingRequiredProperties.length > 1) {
+          const formatter = new Intl.ListFormat('en', {
+            style: 'long',
+            type: 'conjunction',
+          });
+
+          errMsgs.push(
+            `The ${formatter.format(
+              missingRequiredProperties.map(property => `"${property}"`),
+            )} properties are required.`,
+          );
+        }
+
+        // Prepare all the error messages and format them nicely.
+        if (invalidFormatErrMsgs.length > 0) {
+          errMsgs.push(invalidFormatErrMsgs.join(' '));
+        }
+
         setErrorMessages(errMsgs);
         return;
       }
@@ -195,7 +249,7 @@ const ServiceAccountJsonField: React.FC<{
       error={error || errorMessages.length > 0}
       helperText={
         errorMessages.length > 0
-          ? errorMessages.join('. ')
+          ? errorMessages.join(' ') + '.'
           : error
           ? `${field.label} is required`
           : ''
@@ -300,8 +354,12 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
               onChange={v => {
                 onChange(field.key, v);
                 try {
-                  const parsed = JSON.parse(v);
-                  onChange('project-id', parsed.project_id ?? '');
+                  const parsed: JsonCredentialSchema = JSON.parse(v);
+                  if (parsed.type === 'service_account') {
+                    onChange('project-id', parsed.project_id);
+                  } else {
+                    onChange('project-id', '');
+                  }
                 } catch {
                   onChange('project-id', '');
                 }
