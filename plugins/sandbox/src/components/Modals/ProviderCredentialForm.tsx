@@ -297,7 +297,15 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
               field={field}
               value={value}
               error={hasError}
-              onChange={v => onChange(field.key, v)}
+              onChange={v => {
+                onChange(field.key, v);
+                try {
+                  const parsed = JSON.parse(v);
+                  onChange('project-id', parsed.project_id ?? '');
+                } catch {
+                  onChange('project-id', '');
+                }
+              }}
             />
           );
         }

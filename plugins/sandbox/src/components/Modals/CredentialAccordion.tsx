@@ -65,15 +65,7 @@ const getCredentialSummary = (entry: CredentialEntry): string => {
   const { provider, values } = entry;
 
   if (provider.credentialType === 'gcp') {
-    let project = '';
-    const saKeyJson = values['sa-key.json'];
-    if (saKeyJson) {
-      try {
-        project = JSON.parse(saKeyJson).project_id || '';
-      } catch {
-        // JSON not yet valid; leave project empty
-      }
-    }
+    let project = values['project-id'] || '';
     const region = values['region'] || '';
     return project
       ? `Project: ${project} · Region: ${region}`
