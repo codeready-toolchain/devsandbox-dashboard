@@ -65,9 +65,7 @@ describe('ServiceAccountJsonField validation', () => {
     const textArea = screen.getByLabelText('Service Account Key');
     fireEvent.change(textArea, { target: { value: '{not valid json}' } });
 
-    expect(
-      screen.getByText('Please input valid JSON.'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Please input valid JSON.')).toBeInTheDocument();
   });
 
   it('shows error when the "type" property is missing', () => {
@@ -118,9 +116,7 @@ describe('ServiceAccountJsonField validation', () => {
       target: { value: JSON.stringify({ type: 'service_account' }) },
     });
 
-    expect(
-      screen.getByText(/properties are required/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/properties are required/)).toBeInTheDocument();
   });
 
   it('shows error for invalid email format', () => {
@@ -176,9 +172,7 @@ describe('ServiceAccountJsonField validation', () => {
     expect(
       screen.queryByText('Please input valid JSON.'),
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(/property is required/),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/property is required/)).not.toBeInTheDocument();
   });
 
   it('shows no error for valid service account JSON', () => {
@@ -187,11 +181,9 @@ describe('ServiceAccountJsonField validation', () => {
     const textArea = screen.getByLabelText('Service Account Key');
     fireEvent.change(textArea, { target: { value: validServiceAccount } });
 
+    expect(screen.queryByText(/property is required/)).not.toBeInTheDocument();
     expect(
-      screen.queryByText(/property is required/),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText('Please input valid JSON'),
+      screen.queryByText('Please input valid JSON.'),
     ).not.toBeInTheDocument();
   });
 
@@ -201,11 +193,9 @@ describe('ServiceAccountJsonField validation', () => {
     const textArea = screen.getByLabelText('Service Account Key');
     fireEvent.change(textArea, { target: { value: validAuthorizedUser } });
 
+    expect(screen.queryByText(/property is required/)).not.toBeInTheDocument();
     expect(
-      screen.queryByText(/property is required/),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText('Please input valid JSON'),
+      screen.queryByText('Please input valid JSON.'),
     ).not.toBeInTheDocument();
   });
 
@@ -219,9 +209,7 @@ describe('ServiceAccountJsonField validation', () => {
       },
     });
 
-    expect(
-      screen.getByText(/properties are required/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/properties are required/)).toBeInTheDocument();
   });
 
   it('clears errors when field is emptied', () => {
@@ -237,12 +225,55 @@ describe('ServiceAccountJsonField validation', () => {
     ).not.toBeInTheDocument();
 
     fireEvent.change(textArea, { target: { value: '' } });
-    expect(
-      screen.queryByText(/property is required/),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/property is required/)).not.toBeInTheDocument();
     expect(
       screen.queryByText('Please input valid JSON.'),
     ).not.toBeInTheDocument();
+  });
+
+  it('shows error when a field has the wrong type', () => {
+    renderForm();
+
+    const textArea = screen.getByLabelText('Service Account Key');
+    const invalid = JSON.parse(validServiceAccount);
+    invalid.project_id = 123;
+    fireEvent.change(textArea, { target: { value: JSON.stringify(invalid) } });
+
+    expect(
+      screen.getByText(/The "project_id" field must be of the "string" type/),
+    ).toBeInTheDocument();
+  });
+
+  it('shows multiple type errors when several fields have wrong types', () => {
+    renderForm();
+
+    const textArea = screen.getByLabelText('Service Account Key');
+    const invalid = JSON.parse(validServiceAccount);
+    invalid.project_id = 123;
+    invalid.private_key = true;
+    fireEvent.change(textArea, { target: { value: JSON.stringify(invalid) } });
+
+    const helperText = screen.getByText(
+      /The "project_id" field must be of the "string" type/,
+    );
+    expect(helperText.textContent).toContain(
+      'The "private_key" field must be of the "string" type',
+    );
+  });
+
+  it('shows multiple URI format errors when both auth_uri and token_uri are invalid', () => {
+    renderForm();
+
+    const textArea = screen.getByLabelText('Service Account Key');
+    const invalid = JSON.parse(validServiceAccount);
+    invalid.auth_uri = 'not-a-uri';
+    invalid.token_uri = 'also-not-a-uri';
+    fireEvent.change(textArea, { target: { value: JSON.stringify(invalid) } });
+
+    const helperText = screen.getByText(/Invalid URI specified in "auth_uri"/);
+    expect(helperText.textContent).toContain(
+      'Invalid URI specified in "token_uri"',
+    );
   });
 
   it('accepts authorized_user with optional quota_project_id', () => {
@@ -258,11 +289,9 @@ describe('ServiceAccountJsonField validation', () => {
     });
     fireEvent.change(textArea, { target: { value: withQuota } });
 
+    expect(screen.queryByText(/property is required/)).not.toBeInTheDocument();
     expect(
-      screen.queryByText(/property is required/),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText('Please input valid JSON'),
+      screen.queryByText('Please input valid JSON.'),
     ).not.toBeInTheDocument();
   });
 });

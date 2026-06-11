@@ -160,14 +160,16 @@ const ServiceAccountJsonField: React.FC<{
     try {
       data = JSON.parse(raw);
     } catch {
-      setErrorMessages(['Please input valid JSON']);
+      setErrorMessages(['Please input valid JSON.']);
       return;
     }
 
     if (!schemaValidator(data)) {
       if (schemaValidator.errors) {
+        const errMsgs: string[] = [];
         const missingRequiredProperties: string[] = [];
         const invalidFormatErrMsgs: string[] = [];
+        const invalidTypeErrMsgs: string[] = [];
         const credType = (data as Record<string, unknown>).type;
 
         // Short circuit for when a "type" is not found in the provided JSON
@@ -192,23 +194,31 @@ const ServiceAccountJsonField: React.FC<{
             case 'required':
               missingRequiredProperties.push(err.params.missingProperty);
               break;
+            case 'type':
+              invalidTypeErrMsgs.push(
+                `The "${err.instancePath.slice(1)}" field must be of the "${
+                  err.params.type
+                }" type.`,
+              );
+              break;
             case 'format':
               switch (err.params.format) {
                 case 'email':
-                  invalidFormatErrMsgs.push(`Invalid email format specified`);
+                  invalidFormatErrMsgs.push(`Invalid email format specified.`);
                   break;
                 case 'uri':
                   invalidFormatErrMsgs.push(
-                    `Invalid URI specified in "${err.instancePath.slice(1)}"`,
+                    `Invalid URI specified in "${err.instancePath.slice(1)}".`,
                   );
                   break;
               }
               break;
+            default:
+              errMsgs.push(`Invalid property "${err.instancePath.slice(1)}".`);
           }
         }
 
         // Prepare and format the "required properties" error.
-        const errMsgs: string[] = [];
         if (missingRequiredProperties.length == 1) {
           errMsgs.push(
             `The "${missingRequiredProperties[0]}" property is required.`,
@@ -227,6 +237,10 @@ const ServiceAccountJsonField: React.FC<{
         }
 
         // Prepare all the error messages and format them nicely.
+        if (invalidTypeErrMsgs.length > 0) {
+          errMsgs.push(invalidTypeErrMsgs.join(' '));
+        }
+
         if (invalidFormatErrMsgs.length > 0) {
           errMsgs.push(invalidFormatErrMsgs.join(' '));
         }
@@ -249,7 +263,7 @@ const ServiceAccountJsonField: React.FC<{
       error={error || errorMessages.length > 0}
       helperText={
         errorMessages.length > 0
-          ? errorMessages.join(' ') + '.'
+          ? errorMessages.join(' ')
           : error
           ? `${field.label} is required`
           : ''
