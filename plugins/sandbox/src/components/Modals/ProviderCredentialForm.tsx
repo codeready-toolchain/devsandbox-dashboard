@@ -79,6 +79,44 @@ const ApiKeyField: React.FC<{
   );
 };
 
+/**
+ * Special text field for the service accounts which has a palceholder always
+ * enabled to help users determine which credential they need to use.
+ * @param param0 parameters of the component.
+ * @returns a "Service Account JSON field"
+ */
+const ServiceAccountJsonField: React.FC<{
+  field: ProviderCredentialField;
+  value: string;
+  error: boolean;
+  onChange: (value: string) => void;
+}> = ({ field, value, error, onChange }) => {
+  return (
+    <>
+      <TextField
+        variant="filled"
+        fullWidth
+        label={field.label}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        error={error}
+        helperText={
+          error
+            ? 'Valid JSON with type "service_account" or "authorized_user" is required'
+            : ''
+        }
+        placeholder={field.placeholder}
+        multiline
+        minRows={11}
+        maxRows={11}
+        InputLabelProps={{ shrink: true }}
+        InputProps={{ disableUnderline: true }}
+        size="small"
+      />
+    </>
+  );
+};
+
 const ComboboxField: React.FC<{
   field: ProviderCredentialField;
   value: string;
@@ -160,25 +198,12 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
 
         if (field.type === 'serviceAccountJson') {
           return (
-            <TextField
+            <ServiceAccountJsonField
               key={field.key}
-              variant="filled"
-              fullWidth
-              label={field.label}
+              field={field}
               value={value}
-              onChange={e => onChange(field.key, e.target.value)}
               error={hasError}
-              helperText={
-                hasError
-                  ? 'Valid JSON with type "service_account" or "authorized_user" is required'
-                  : ''
-              }
-              placeholder={field.placeholder}
-              multiline
-              minRows={4}
-              maxRows={8}
-              InputProps={{ disableUnderline: true }}
-              size="small"
+              onChange={v => onChange(field.key, v)}
             />
           );
         }
