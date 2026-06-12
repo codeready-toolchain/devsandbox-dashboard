@@ -144,6 +144,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   const pendingDisableDevicePairing = useRef<boolean>(false);
   const creatingSpaceRequest = useRef(false);
   const creatingOpenClaw = useRef(false);
+  const deletingOpenClaw = useRef(false);
   const [openclawData, setOpenclawData] = useState<OpenClawItem | undefined>();
   const [openclawStatus, setOpenclawStatus] = useState<OpenClawStatus>(
     OpenClawStatus.NEW,
@@ -291,6 +292,16 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       const sr = await openclawApi.getSpaceRequest(userNamespace);
 
       if (!sr) {
+        if (deletingOpenClaw.current) {
+          deletingOpenClaw.current = false;
+          setClawNamespace(undefined);
+          setOpenclawData(undefined);
+          setOpenclawStatus(OpenClawStatus.NEW);
+          setOpenclawUILink(undefined);
+          setOpenclawError(null);
+          return { status: OpenClawStatus.NEW, namespace: undefined };
+        }
+
         // No SpaceRequest yet: if credentials were submitted, create one
         // (guarded to prevent duplicate calls from concurrent polls).
         if (pendingCredentials.current && !creatingSpaceRequest.current) {
@@ -317,8 +328,15 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
 
       // Step 2 — handle transient SpaceRequest states
       if (isSpaceRequestTerminating(sr)) {
+        if (deletingOpenClaw.current) {
+          return { status: OpenClawStatus.DELETING, namespace: undefined };
+        }
         setOpenclawStatus(OpenClawStatus.TERMINATING);
         return { status: OpenClawStatus.TERMINATING, namespace: undefined };
+      }
+
+      if (deletingOpenClaw.current) {
+        return { status: OpenClawStatus.DELETING, namespace: undefined };
       }
 
       const targetNamespace = getSpaceRequestNamespace(sr);
@@ -431,6 +449,10 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       return true;
     }
 
+    if (currentStatus === OpenClawStatus.DELETING) {
+      return false;
+    }
+
     if (currentStatus === OpenClawStatus.TERMINATING) {
       if (!credentials || credentials.length === 0) {
         return false;
@@ -474,6 +496,11 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const deleteOpenClaw = async (userNamespace: string) => {
+    deletingOpenClaw.current = true;
+    setOpenclawStatus(OpenClawStatus.DELETING);
+    setOpenclawUILink(undefined);
+    setOpenclawError(null);
+
     const results = await Promise.allSettled([
       clawNamespace
         ? openclawApi.deleteOpenClawCR(clawNamespace)
@@ -482,18 +509,23 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       openclawApi.cleanupWorkspaceEnvironment(userNamespace),
     ]);
 
-    for (const result of results) {
-      if (result.status === 'rejected') {
+    const failures = results.filter(
+      (r): r is PromiseRejectedResult => r.status === 'rejected',
+    );
+
+    if (failures.length > 0) {
+      for (const f of failures) {
         // eslint-disable-next-line no-console
-        console.error(result.reason);
+        console.error(f.reason);
       }
+      deletingOpenClaw.current = false;
+      setOpenclawStatus(OpenClawStatus.FAILED);
+      setOpenclawError(errorMessage(failures[0].reason));
+      return;
     }
 
     setClawNamespace(undefined);
     setOpenclawData(undefined);
-    setOpenclawStatus(OpenClawStatus.NEW);
-    setOpenclawUILink(undefined);
-    setOpenclawError(null);
   };
 
   useEffect(() => {
@@ -544,28 +576,53 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   const pollInterval =
     status === 'provisioning' ? SHORT_INTERVAL : LONG_INTERVAL;
 
+  // Fetch signup data on a regular basis. We do it on a shorter interval when
+  // the sandbox is still not yet ready.
   useEffect(() => {
     if (pollStatus) {
-      const handle = setInterval(() => {
-        fetchData(true);
-      }, pollInterval);
-      return () => clearInterval(handle);
+      let cancelled = false;
+      let timeoutId: ReturnType<typeof setTimeout>;
+      const poll = async () => {
+        await fetchData(true);
+        if (!cancelled) {
+          timeoutId = setTimeout(poll, pollInterval);
+        }
+      };
+
+      timeoutId = setTimeout(poll, pollInterval);
+      return () => {
+        cancelled = true;
+        clearTimeout(timeoutId);
+      };
     }
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pollStatus, pollInterval]);
 
+  // Poll for the Ansible Automation Platform data on a regular basis until
+  // the instance is ready to use.
   useEffect(() => {
-    if (userData?.defaultUserNamespace) {
-      const handle = setInterval(
-        getAAPData,
-        SHORT_INTERVAL,
-        userData?.defaultUserNamespace,
-      );
+    if (
+      userData?.defaultUserNamespace &&
+      ansibleStatus !== AnsibleStatus.READY
+    ) {
+      const namespace = userData.defaultUserNamespace;
+      let cancelled = false;
+      let timeoutId: ReturnType<typeof setTimeout>;
+      const poll = async () => {
+        await getAAPData(namespace);
+        if (!cancelled) {
+          timeoutId = setTimeout(poll, SHORT_INTERVAL);
+        }
+      };
+
+      timeoutId = setTimeout(poll, SHORT_INTERVAL);
       return () => {
-        clearInterval(handle);
+        cancelled = true;
+        clearTimeout(timeoutId);
       };
     }
+
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData, ansibleStatus]);
@@ -581,15 +638,23 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
     if (
       userData?.defaultUserNamespace &&
       (openclawStatus === OpenClawStatus.PROVISIONING ||
-        openclawStatus === OpenClawStatus.TERMINATING)
+        openclawStatus === OpenClawStatus.TERMINATING ||
+        openclawStatus === OpenClawStatus.DELETING)
     ) {
-      const handle = setInterval(
-        getOpenClawData,
-        SHORT_INTERVAL,
-        userData.defaultUserNamespace,
-      );
+      const namespace = userData.defaultUserNamespace;
+      let cancelled = false;
+      let timeoutId: ReturnType<typeof setTimeout>;
+      const poll = async () => {
+        await getOpenClawData(namespace);
+        if (!cancelled) {
+          timeoutId = setTimeout(poll, SHORT_INTERVAL);
+        }
+      };
+
+      timeoutId = setTimeout(poll, SHORT_INTERVAL);
       return () => {
-        clearInterval(handle);
+        cancelled = true;
+        clearTimeout(timeoutId);
       };
     }
     return undefined;

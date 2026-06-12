@@ -55,16 +55,22 @@ const apiKeyField = (placeholder?: string): ProviderCredentialField => ({
   placeholder: placeholder ?? 'Enter your API key',
 });
 
-const gcpFields = (
-  defaultRegion: string,
-  regionSuggestions: string[],
-): ProviderCredentialField[] => [
+const gcpFields = (regionSuggestions: string[]): ProviderCredentialField[] => [
   {
     key: 'sa-key.json',
     label: 'Service Account Key',
     type: 'serviceAccountJson',
     required: true,
-    placeholder: 'Paste your service account JSON key',
+    placeholder: `{
+  "type": "service_account",
+  "project_id": "your-gcp-project-id",
+  "private_key_id": "...",
+  "private_key": "-----BEGIN PRIVATE KEY----- ...",
+  "client_email": "name@your-gcp-project-id.iam.gserviceaccount.com",
+  "client_id": "...",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token"
+}`,
     multiline: true,
   },
   {
@@ -79,14 +85,13 @@ const gcpFields = (
     label: 'Region',
     type: 'combobox',
     required: true,
-    placeholder: defaultRegion,
-    defaultValue: defaultRegion,
+    placeholder: 'Select or type your region',
     options: regionSuggestions,
   },
 ];
 
 export const PROVIDERS: ProviderConfig[] = [
-  // Tier 1 — Primary options
+  // Primary options.
   {
     id: 'gemini',
     name: 'Google Gemini',
@@ -126,7 +131,7 @@ export const PROVIDERS: ProviderConfig[] = [
     fields: [apiKeyField()],
   },
 
-  // Tier 2 — Advanced options
+  // Advanced options.
   {
     id: 'openrouter',
     name: 'OpenRouter',
@@ -137,14 +142,16 @@ export const PROVIDERS: ProviderConfig[] = [
     keyUrl: 'https://openrouter.ai/keys',
     fields: [apiKeyField()],
   },
+
+  // Vertex AI.
   {
     id: 'google-vertex',
-    name: 'Google Vertex AI',
+    name: 'Vertex AI - Google',
     provider: 'google',
     category: 'advanced',
     credentialType: 'gcp',
     keyUrl: 'https://console.cloud.google.com/iam-admin/serviceaccounts',
-    fields: gcpFields('us-central1', [
+    fields: gcpFields([
       'global',
       'us-central1',
       'us-east4',
@@ -154,15 +161,15 @@ export const PROVIDERS: ProviderConfig[] = [
   },
   {
     id: 'anthropic-vertex',
-    name: 'Anthropic Claude via Vertex AI',
+    name: 'Vertex AI - Anthropic',
     provider: 'anthropic',
     category: 'advanced',
     credentialType: 'gcp',
     keyUrl: 'https://console.cloud.google.com/vertex-ai/publishers/anthropic',
-    fields: gcpFields('us-east5', ['us-east5', 'europe-west1', 'europe-west4']),
+    fields: gcpFields(['us-east5', 'europe-west1', 'europe-west4']),
   },
 
-  // Custom / Self-Hosted
+  // Custom / Self-Hosted.
   {
     id: 'custom',
     name: 'Custom / Self-Hosted',

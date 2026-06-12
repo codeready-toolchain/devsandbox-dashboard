@@ -54,6 +54,10 @@ export const SandboxCatalogCardButton: React.FC<
     handleTryButtonClick(id);
   };
 
+  if (id === Product.OPENCLAW && openclawStatus === OpenClawStatus.DELETING) {
+    return null;
+  }
+
   const getProvisionableLabel = (
     productStatus: string,
     idled: string,

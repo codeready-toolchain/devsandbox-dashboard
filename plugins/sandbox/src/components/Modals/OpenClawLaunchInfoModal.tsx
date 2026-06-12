@@ -308,8 +308,9 @@ export const OpenClawLaunchInfoModal: React.FC<
                 variant="body1"
                 sx={{ fontSize: '16px', fontWeight: 500 }}
               >
-                You can close this modal. Follow the status of your instance on
-                the OpenClaw sandbox card.
+                Please be aware that the provisioning can take between 1 and 5
+                minutes. You can close this modal in the meantime, and follow
+                status of your instance on the OpenClaw sandbox card.
               </Typography>
             </Alert>
           </div>
