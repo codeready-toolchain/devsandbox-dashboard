@@ -74,13 +74,6 @@ const gcpFields = (regionSuggestions: string[]): ProviderCredentialField[] => [
     multiline: true,
   },
   {
-    key: 'project-id',
-    label: 'GCP Project ID',
-    type: 'text',
-    required: true,
-    placeholder: 'e.g., my-project-123',
-  },
-  {
     key: 'region',
     label: 'Region',
     type: 'combobox',

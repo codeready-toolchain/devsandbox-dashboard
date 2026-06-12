@@ -65,9 +65,13 @@ const getCredentialSummary = (entry: CredentialEntry): string => {
   const { provider, values } = entry;
 
   if (provider.credentialType === 'gcp') {
-    const project = values['project-id'] || '';
+    let project = values['project-id'] || '';
     const region = values['region'] || '';
-    return `Project: ${project} · Region: ${region}`;
+    return project
+      ? `Project: ${project} · Region: ${region}`
+      : region
+      ? `Region: ${region}`
+      : '';
   }
 
   if (provider.id === 'custom') {
@@ -224,6 +228,11 @@ export const CredentialAccordion = forwardRef<
     [],
   );
 
+  /**
+   * Updates a credential entry's field value and clears any submit-time
+   * validation error for that field so the error indicator disappears
+   * as soon as the user starts correcting the input.
+   */
   const handleFieldChange = useCallback(
     (entryId: string, key: string, value: string) => {
       setEntries(prev =>
@@ -234,8 +243,11 @@ export const CredentialAccordion = forwardRef<
         ),
       );
       setErrors(prev => {
+        // No error to clear — skip unnecessary state update
         if (!prev[entryId]?.[key]) return prev;
+        // Remove the specific field error from this entry
         const { [key]: _, ...entryErrors } = prev[entryId];
+        // If no errors remain for this entry, remove the entry key entirely
         if (Object.keys(entryErrors).length === 0) {
           const { [entryId]: __, ...rest } = prev;
           return rest;

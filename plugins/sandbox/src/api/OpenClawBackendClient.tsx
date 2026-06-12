@@ -212,8 +212,8 @@ export class OpenClawBackendClient implements OpenClawService {
         name: config.id === 'anthropic-vertex' ? 'anthropic-vertex' : 'gemini',
         provider: config.provider,
         gcp: {
-          project: cred.values['project-id'] ?? '',
-          location: cred.values['region'] ?? '',
+          project: cred.values['project-id'] || undefined,
+          location: cred.values['region'] || undefined,
         },
       };
     }

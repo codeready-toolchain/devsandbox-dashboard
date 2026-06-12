@@ -54,16 +54,15 @@ describe('openclaw-providers', () => {
     expect(PROVIDERS[0].id).toBe('gemini');
   });
 
-  it('Google Vertex has sa-key.json, project-id, and region fields', () => {
+  it('Google Vertex has sa-key.json and region fields', () => {
     const vertex = getProviderById('google-vertex');
     expect(vertex).toBeDefined();
-    expect(vertex?.fields).toHaveLength(3);
+    expect(vertex?.fields).toHaveLength(2);
     expect(vertex?.credentialType).toBe('gcp');
     expect(vertex?.provider).toBe('google');
 
     const fieldKeys = (vertex?.fields ?? []).map(f => f.key);
     expect(fieldKeys).toContain('sa-key.json');
-    expect(fieldKeys).toContain('project-id');
     expect(fieldKeys).toContain('region');
   });
 
