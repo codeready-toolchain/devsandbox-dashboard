@@ -88,26 +88,31 @@ const getCredentialSummary = (entry: CredentialEntry): string => {
 const validateFields = (
   provider: ProviderConfig,
   values: Record<string, string>,
-): Record<string, boolean> => {
-  const errors: Record<string, boolean> = {};
+): Record<string, string[]> => {
+  const errors: Record<string, string[]> = {};
+
   for (const field of provider.fields) {
+    // Extract the value from the field without any leading or trailing
+    // whitespaces.
     const value = values[field.key]?.trim();
-    if (field.required && !value) {
-      errors[field.key] = true;
-    } else if (field.type === 'serviceAccountJson' && value) {
-      try {
-        const parsed = JSON.parse(value);
-        if (
-          parsed.type !== 'service_account' &&
-          parsed.type !== 'authorized_user'
-        ) {
-          errors[field.key] = true;
-        }
-      } catch {
-        errors[field.key] = true;
+
+    // If the field has a custom validate function defined, run it.
+    if (field.validate) {
+      const msgs = field.validate(value);
+      if (msgs.length > 0) {
+        errors[field.key] = msgs;
       }
+
+      continue;
+    }
+
+    // The field does not a custom validator, so perform a basic "required"
+    // check.
+    if (field.required && !value) {
+      errors[field.key] = [`The "${field.label}" field is required`];
     }
   }
+
   return errors;
 };
 
@@ -146,9 +151,9 @@ export const CredentialAccordion = forwardRef<
     { id: 'cred-1', provider: null, values: {} },
   ]);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [errors, setErrors] = useState<Record<string, Record<string, boolean>>>(
-    {},
-  );
+  const [errors, setErrors] = useState<
+    Record<string, Record<string, string[]>>
+  >({});
   const nextIdRef = useRef(1);
 
   const credentialCount = useMemo(
@@ -234,19 +239,46 @@ export const CredentialAccordion = forwardRef<
    * as soon as the user starts correcting the input.
    */
   const handleFieldChange = useCallback(
-    (entryId: string, key: string, value: string) => {
+    (entryId: string, fieldKey: string, fieldValue: string) => {
+      // Update the field's value.
       setEntries(prev =>
         prev.map(e =>
           e.id === entryId
-            ? { ...e, values: { ...e.values, [key]: value } }
+            ? { ...e, values: { ...e.values, [fieldKey]: fieldValue } }
             : e,
         ),
       );
+
+      // Find the field definition to check for a validator.
       setErrors(prev => {
-        // No error to clear — skip unnecessary state update
-        if (!prev[entryId]?.[key]) return prev;
+        const entry = entries.find(e => e.id === entryId);
+        const field = entry?.provider?.fields.find(f => f.key === fieldKey);
+
+        // When the field has a validator, run it to provide instant feedback
+        // if there are any errors.
+        if (field?.validate) {
+          const msgs = field.validate(fieldValue.trim());
+          if (msgs.length > 0) {
+            return {
+              ...prev,
+              [entryId]: { ...prev[entryId], [fieldKey]: msgs },
+            };
+          }
+
+          // At this point there are no errors, so we need to clear the errors
+          // from the field.
+          const { [fieldKey]: _, ...rest } = prev[entryId] ?? {};
+          if (Object.keys(rest).length === 0) {
+            const { [entryId]: __, ...remaining } = prev;
+            return remaining;
+          }
+          return { ...prev, [entryId]: rest };
+        }
+
+        // When there are no validators, simply clear the submit-time error.
+        if (!prev[entryId]?.[fieldKey]) return prev;
         // Remove the specific field error from this entry
-        const { [key]: _, ...entryErrors } = prev[entryId];
+        const { [fieldKey]: _, ...entryErrors } = prev[entryId];
         // If no errors remain for this entry, remove the entry key entirely
         if (Object.keys(entryErrors).length === 0) {
           const { [entryId]: __, ...rest } = prev;
@@ -255,7 +287,7 @@ export const CredentialAccordion = forwardRef<
         return { ...prev, [entryId]: entryErrors };
       });
     },
-    [],
+    [entries],
   );
 
   useImperativeHandle(
@@ -269,7 +301,7 @@ export const CredentialAccordion = forwardRef<
         if (withProvider.length === 0) return null;
 
         let hasErrors = false;
-        const newErrors: Record<string, Record<string, boolean>> = {};
+        const newErrors: Record<string, Record<string, string[]>> = {};
         const newExpandedIds = new Set(expandedIds);
 
         for (const entry of withProvider) {
