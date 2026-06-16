@@ -44,6 +44,7 @@ import {
   ProviderCategory,
   ProviderConfig,
 } from '../../utils/openclaw-providers';
+import { JsonCredentialSchema } from '../../types/openclaw';
 import { ProviderCredentialForm } from './ProviderCredentialForm';
 
 type CredentialEntry = {
@@ -115,6 +116,24 @@ const validateFields = (
 
   return errors;
 };
+
+export function extractGcpProjectId(json: string): string {
+  try {
+    const parsed: JsonCredentialSchema = JSON.parse(json);
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      'type' in parsed &&
+      parsed.type === 'service_account' &&
+      'project_id' in parsed
+    ) {
+      return parsed.project_id;
+    }
+  } catch {
+    // Invalid JSON — fall through to empty string.
+  }
+  return '';
+}
 
 const accordionSx = {
   mb: 1,
@@ -240,20 +259,23 @@ export const CredentialAccordion = forwardRef<
    */
   const handleFieldChange = useCallback(
     (entryId: string, fieldKey: string, fieldValue: string) => {
-      // Update the field's value.
+      const entry = entries.find(e => e.id === entryId);
+      const field = entry?.provider?.fields.find(f => f.key === fieldKey);
+
+      const valuesUpdate: Record<string, string> = { [fieldKey]: fieldValue };
+      if (field?.type === 'serviceAccountJson') {
+        valuesUpdate['project-id'] = extractGcpProjectId(fieldValue);
+      }
+
       setEntries(prev =>
         prev.map(e =>
           e.id === entryId
-            ? { ...e, values: { ...e.values, [fieldKey]: fieldValue } }
+            ? { ...e, values: { ...e.values, ...valuesUpdate } }
             : e,
         ),
       );
 
-      // Find the field definition to check for a validator.
       setErrors(prev => {
-        const entry = entries.find(e => e.id === entryId);
-        const field = entry?.provider?.fields.find(f => f.key === fieldKey);
-
         // When the field has a validator, run it to provide instant feedback
         // if there are any errors.
         if (field?.validate) {

@@ -2,6 +2,7 @@ import React from 'react';
 import { getProviderById } from '../../../utils/openclaw-providers';
 import { createTheme, ThemeProvider } from '@mui/material';
 import ProviderCredentialForm from '../ProviderCredentialForm';
+import { extractGcpProjectId } from '../CredentialAccordion';
 import { fireEvent, render, screen } from '@testing-library/react';
 
 const gcpProvider = getProviderById('google-vertex')!;
@@ -117,103 +118,71 @@ describe('error display from parent errors prop', () => {
   });
 });
 
-describe('project-id extraction from credentials JSON', () => {
-  it('sets project-id when a valid service_account JSON is entered', () => {
+describe('serviceAccountJson field delegates raw value to parent onChange', () => {
+  it('calls onChange only with the field key and raw value', () => {
     const { onChange } = renderForm();
 
     const textArea = screen.getByLabelText('Service Account Key');
     fireEvent.change(textArea, { target: { value: validServiceAccount } });
 
-    expect(onChange).toHaveBeenCalledWith('project-id', 'my-project');
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith('sa-key.json', validServiceAccount);
   });
 
-  it('clears project-id when an authorized_user JSON is entered', () => {
-    const { onChange } = renderForm({
-      values: { 'project-id': 'stale-project' },
-    });
-
-    const textArea = screen.getByLabelText('Service Account Key');
-    fireEvent.change(textArea, { target: { value: validAuthorizedUser } });
-
-    expect(onChange).toHaveBeenCalledWith('project-id', '');
-  });
-
-  it('clears project-id when invalid JSON is entered', () => {
-    const { onChange } = renderForm({
-      values: { 'project-id': 'stale-project' },
-    });
-
-    const textArea = screen.getByLabelText('Service Account Key');
-    fireEvent.change(textArea, { target: { value: '{not valid' } });
-
-    expect(onChange).toHaveBeenCalledWith('project-id', '');
-  });
-
-  it('clears stale project-id when switching from service_account to authorized_user', () => {
+  it('does not call onChange with project-id', () => {
     const { onChange } = renderForm();
 
     const textArea = screen.getByLabelText('Service Account Key');
     fireEvent.change(textArea, { target: { value: validServiceAccount } });
-    expect(onChange).toHaveBeenCalledWith('project-id', 'my-project');
 
-    onChange.mockClear();
-    fireEvent.change(textArea, { target: { value: validAuthorizedUser } });
-    expect(onChange).toHaveBeenCalledWith('project-id', '');
+    expect(onChange).not.toHaveBeenCalledWith('project-id', expect.anything());
   });
 });
 
-describe('runtime validation guards against unexpected JSON shapes', () => {
+describe('extractGcpProjectId', () => {
+  it('returns project_id from a valid service_account JSON', () => {
+    expect(extractGcpProjectId(validServiceAccount)).toBe('my-project');
+  });
+
+  it('returns empty string for an authorized_user JSON', () => {
+    expect(extractGcpProjectId(validAuthorizedUser)).toBe('');
+  });
+
+  it('returns empty string for invalid JSON', () => {
+    expect(extractGcpProjectId('{not valid')).toBe('');
+  });
+
   it.each([
     ['a JSON array', JSON.stringify([{ project_id: 'sneaky' }])],
     ['a JSON string', JSON.stringify('service_account')],
     ['a JSON number', JSON.stringify(42)],
     ['JSON null', 'null'],
     ['a boolean', 'true'],
-  ])('clears project-id when parsed value is %s', (_label, jsonValue) => {
-    const { onChange } = renderForm();
-
-    const textArea = screen.getByLabelText('Service Account Key');
-    fireEvent.change(textArea, { target: { value: jsonValue } });
-
-    expect(onChange).toHaveBeenCalledWith('project-id', '');
+  ])('returns empty string when parsed value is %s', (_label, jsonValue) => {
+    expect(extractGcpProjectId(jsonValue)).toBe('');
   });
 
-  it('clears project-id when object has type service_account but no project_id', () => {
-    const { onChange } = renderForm();
+  it('returns empty string when object has type service_account but no project_id', () => {
     const json = JSON.stringify({
       type: 'service_account',
       client_email: 'a@b.com',
     });
-
-    const textArea = screen.getByLabelText('Service Account Key');
-    fireEvent.change(textArea, { target: { value: json } });
-
-    expect(onChange).toHaveBeenCalledWith('project-id', '');
+    expect(extractGcpProjectId(json)).toBe('');
   });
 
-  it('clears project-id when object is missing the type field entirely', () => {
-    const { onChange } = renderForm();
+  it('returns empty string when object is missing the type field', () => {
     const json = JSON.stringify({
       project_id: 'my-project',
       client_email: 'a@b.com',
     });
-
-    const textArea = screen.getByLabelText('Service Account Key');
-    fireEvent.change(textArea, { target: { value: json } });
-
-    expect(onChange).toHaveBeenCalledWith('project-id', '');
+    expect(extractGcpProjectId(json)).toBe('');
   });
 
-  it('clears project-id when type is not service_account even with project_id present', () => {
-    const { onChange } = renderForm();
+  it('returns empty string when type is not service_account even with project_id', () => {
     const json = JSON.stringify({
       type: 'external_account',
       project_id: 'my-project',
     });
-
-    const textArea = screen.getByLabelText('Service Account Key');
-    fireEvent.change(textArea, { target: { value: json } });
-
-    expect(onChange).toHaveBeenCalledWith('project-id', '');
+    expect(extractGcpProjectId(json)).toBe('');
   });
 });

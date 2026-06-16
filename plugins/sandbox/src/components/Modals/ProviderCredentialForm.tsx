@@ -26,7 +26,6 @@ import {
   ProviderConfig,
   ProviderCredentialField,
 } from '../../utils/openclaw-providers';
-import { JsonCredentialSchema } from '../../types/openclaw';
 
 const API_FORMAT_LABELS: Record<string, string> = {
   'openai-completions': 'OpenAI Completions',
@@ -167,27 +166,7 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
               fullWidth
               label={field.label}
               value={value}
-              onChange={e => {
-                onChange(field.key, e.target.value);
-                try {
-                  const parsed: JsonCredentialSchema = JSON.parse(
-                    e.target.value,
-                  );
-                  if (
-                    typeof parsed === 'object' &&
-                    parsed !== null &&
-                    'type' in parsed &&
-                    parsed.type === 'service_account' &&
-                    'project_id' in parsed
-                  ) {
-                    onChange('project-id', parsed.project_id);
-                  } else {
-                    onChange('project-id', '');
-                  }
-                } catch {
-                  onChange('project-id', '');
-                }
-              }}
+              onChange={e => onChange(field.key, e.target.value)}
               error={fieldErrors.length > 0}
               helperText={fieldErrors.length > 0 ? fieldErrors.join(' ') : ''}
               placeholder={field.placeholder}
