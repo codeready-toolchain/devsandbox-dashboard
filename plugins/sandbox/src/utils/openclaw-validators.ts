@@ -6,6 +6,7 @@ import addFormats from 'ajv-formats';
  * Defines the expected JSON schema for the Vertex service accounts.
  */
 const schema = {
+  type: 'object',
   discriminator: { propertyName: 'type' },
   oneOf: [
     {
@@ -49,7 +50,7 @@ const schema = {
  * Instantiate Ajv once, along with the schema validator so that we do not
  * recompile the schema every time a component is rendered.
  */
-const ajv = new Ajv({ allErrors: true, discriminator: true, strict: false });
+const ajv = new Ajv({ allErrors: true, discriminator: true, strict: true });
 addFormats(ajv);
 const schemaValidator = ajv.compile<JsonCredentialSchema>(schema);
 
