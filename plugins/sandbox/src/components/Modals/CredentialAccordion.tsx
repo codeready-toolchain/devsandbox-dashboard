@@ -97,6 +97,14 @@ const validateFields = (
     // whitespaces.
     const value = values[field.key]?.trim();
 
+    // Enforce "required" before any custom validation so that empty required
+    // fields are always caught, even when a custom validator treats empty
+    // input as a no-op.
+    if (field.required && !value) {
+      errors[field.key] = [`The "${field.label}" field is required`];
+      continue;
+    }
+
     // If the field has a custom validate function defined, run it.
     if (field.validate) {
       const msgs = field.validate(value);
@@ -105,12 +113,6 @@ const validateFields = (
       }
 
       continue;
-    }
-
-    // The field does not a custom validator, so perform a basic "required"
-    // check.
-    if (field.required && !value) {
-      errors[field.key] = [`The "${field.label}" field is required`];
     }
   }
 
