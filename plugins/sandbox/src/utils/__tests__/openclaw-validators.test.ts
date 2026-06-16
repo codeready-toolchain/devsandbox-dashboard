@@ -47,6 +47,15 @@ describe('openclawVertexJsonValidator', () => {
     expect(errors).toEqual(['Please input valid JSON.']);
   });
 
+  it.each(['null', '42', '"hello"', 'true', '[1,2]'])(
+    'returns error when JSON is a non-object primitive: %s',
+    (input: string) => {
+      expect(openclawVertexJsonValidator(input)).toEqual([
+        'Please input a valid JSON object.',
+      ]);
+    },
+  );
+
   it('returns error when the "type" property is missing', () => {
     const json = JSON.stringify({ project_id: 'my-project' });
     const errors = openclawVertexJsonValidator(json);

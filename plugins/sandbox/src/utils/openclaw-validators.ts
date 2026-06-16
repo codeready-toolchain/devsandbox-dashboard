@@ -69,6 +69,12 @@ export const openclawVertexJsonValidator = (rawJson: string): string[] => {
     return ['Please input valid JSON.'];
   }
 
+  // JSON.parse succeeds for primitives (null, numbers, strings) and arrays,
+  // but downstream code assumes a plain object (e.g. accessing data.type).
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+    return ['Please input a valid JSON object.'];
+  }
+
   if (!schemaValidator(data)) {
     if (schemaValidator.errors) {
       const errMsgs: string[] = [];
