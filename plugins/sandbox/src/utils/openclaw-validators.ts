@@ -54,6 +54,9 @@ const ajv = new Ajv({ allErrors: true, discriminator: true, strict: true });
 addFormats(ajv);
 const schemaValidator = ajv.compile<JsonCredentialSchema>(schema);
 
+const stripLeadingSlash = (path: string): string =>
+  path.startsWith('/') ? path.slice(1) : path;
+
 export const openclawVertexJsonValidator = (rawJson: string): string[] => {
   if (rawJson === '') {
     return [];
@@ -96,9 +99,9 @@ export const openclawVertexJsonValidator = (rawJson: string): string[] => {
             break;
           case 'type':
             invalidTypeErrMsgs.push(
-              `The "${err.instancePath.slice(1)}" field must be of the "${
-                err.params.type
-              }" type.`,
+              `The "${stripLeadingSlash(
+                err.instancePath,
+              )}" field must be of the "${err.params.type}" type.`,
             );
             break;
           case 'format':
@@ -108,13 +111,17 @@ export const openclawVertexJsonValidator = (rawJson: string): string[] => {
                 break;
               case 'uri':
                 invalidFormatErrMsgs.push(
-                  `Invalid URI specified in "${err.instancePath.slice(1)}".`,
+                  `Invalid URI specified in "${stripLeadingSlash(
+                    err.instancePath,
+                  )}".`,
                 );
                 break;
             }
             break;
           default:
-            errMsgs.push(`Invalid property "${err.instancePath.slice(1)}".`);
+            errMsgs.push(
+              `Invalid property "${stripLeadingSlash(err.instancePath)}".`,
+            );
         }
       }
 
