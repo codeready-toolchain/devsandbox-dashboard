@@ -118,7 +118,7 @@ export const openclawVertexJsonValidator = (rawJson: string): string[] => {
       }
 
       // Prepare and format the "required properties" error.
-      if (missingRequiredProperties.length == 1) {
+      if (missingRequiredProperties.length === 1) {
         errMsgs.push(
           `The "${missingRequiredProperties[0]}" property is required.`,
         );
