@@ -161,3 +161,59 @@ describe('project-id extraction from credentials JSON', () => {
     expect(onChange).toHaveBeenCalledWith('project-id', '');
   });
 });
+
+describe('runtime validation guards against unexpected JSON shapes', () => {
+  it.each([
+    ['a JSON array', JSON.stringify([{ project_id: 'sneaky' }])],
+    ['a JSON string', JSON.stringify('service_account')],
+    ['a JSON number', JSON.stringify(42)],
+    ['JSON null', 'null'],
+    ['a boolean', 'true'],
+  ])('clears project-id when parsed value is %s', (_label, jsonValue) => {
+    const { onChange } = renderForm();
+
+    const textArea = screen.getByLabelText('Service Account Key');
+    fireEvent.change(textArea, { target: { value: jsonValue } });
+
+    expect(onChange).toHaveBeenCalledWith('project-id', '');
+  });
+
+  it('clears project-id when object has type service_account but no project_id', () => {
+    const { onChange } = renderForm();
+    const json = JSON.stringify({
+      type: 'service_account',
+      client_email: 'a@b.com',
+    });
+
+    const textArea = screen.getByLabelText('Service Account Key');
+    fireEvent.change(textArea, { target: { value: json } });
+
+    expect(onChange).toHaveBeenCalledWith('project-id', '');
+  });
+
+  it('clears project-id when object is missing the type field entirely', () => {
+    const { onChange } = renderForm();
+    const json = JSON.stringify({
+      project_id: 'my-project',
+      client_email: 'a@b.com',
+    });
+
+    const textArea = screen.getByLabelText('Service Account Key');
+    fireEvent.change(textArea, { target: { value: json } });
+
+    expect(onChange).toHaveBeenCalledWith('project-id', '');
+  });
+
+  it('clears project-id when type is not service_account even with project_id present', () => {
+    const { onChange } = renderForm();
+    const json = JSON.stringify({
+      type: 'external_account',
+      project_id: 'my-project',
+    });
+
+    const textArea = screen.getByLabelText('Service Account Key');
+    fireEvent.change(textArea, { target: { value: json } });
+
+    expect(onChange).toHaveBeenCalledWith('project-id', '');
+  });
+});

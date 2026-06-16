@@ -173,7 +173,13 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
                   const parsed: JsonCredentialSchema = JSON.parse(
                     e.target.value,
                   );
-                  if (parsed.type === 'service_account') {
+                  if (
+                    typeof parsed === 'object' &&
+                    parsed !== null &&
+                    'type' in parsed &&
+                    parsed.type === 'service_account' &&
+                    'project_id' in parsed
+                  ) {
                     onChange('project-id', parsed.project_id);
                   } else {
                     onChange('project-id', '');
