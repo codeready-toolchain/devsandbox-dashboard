@@ -29,3 +29,5 @@ jobs:
           flags: unittests
           fail_ci_if_error: true
           verbose: true
+          override_commit: ${{ github.event.workflow_run.head_sha }}
+          override_branch: ${{ github.event.workflow_run.head_branch }}
