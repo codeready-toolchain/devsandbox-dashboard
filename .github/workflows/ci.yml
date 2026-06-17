@@ -59,6 +59,17 @@ jobs:
       - name: test changed packages
         run: yarn test:all --maxWorkers=3
 
+      - name: Merge coverage reports
+        run: |
+          mkdir -p coverage
+          find plugins -name lcov.info -exec cat {} + > coverage/lcov.info
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage
+          path: coverage/lcov.info
+
       - name: ensure clean working directory
         run: |
           if files=$(git ls-files --exclude-standard --others --modified) && [[ -z "$files" ]]; then
