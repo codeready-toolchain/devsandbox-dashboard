@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import { openclawVertexJsonValidator } from './openclaw-validators';
+
 export type CredentialFieldType =
   | 'apiKey'
   | 'serviceAccountJson'
@@ -30,6 +32,14 @@ export type ProviderCredentialField = {
   multiline?: boolean;
   options?: string[];
   defaultValue?: string;
+  /**
+   * Validate makes sure that the field has a correct and expected value. The
+   * fields that do not have a custom validator defined will be validated for
+   * the "required" constraint only.
+   * @param value the value to validate.
+   * @returns and array of error strings.
+   */
+  validate?: (value: string) => string[];
 };
 
 export type CredentialType = 'apiKey' | 'bearer' | 'gcp' | 'none';
@@ -72,13 +82,7 @@ const gcpFields = (regionSuggestions: string[]): ProviderCredentialField[] => [
   "token_uri": "https://oauth2.googleapis.com/token"
 }`,
     multiline: true,
-  },
-  {
-    key: 'project-id',
-    label: 'GCP Project ID',
-    type: 'text',
-    required: true,
-    placeholder: 'e.g., my-project-123',
+    validate: openclawVertexJsonValidator,
   },
   {
     key: 'region',

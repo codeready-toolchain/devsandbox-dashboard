@@ -35,8 +35,8 @@ export type OpenClawCredentialRef = {
 };
 
 export type OpenClawGcpConfig = {
-  project: string;
-  location: string;
+  project?: string;
+  location?: string;
 };
 
 export type OpenClawCredential = {
@@ -92,3 +92,34 @@ export type OpenClawItem = {
     url?: string;
   };
 };
+
+/**
+ * Defines interface of the schema for the expected "authorized users"
+ * structure.
+ */
+interface AuthorizedUserCredential {
+  type: 'authorized_user';
+  client_id: string;
+  client_secret: string;
+  refresh_token: string;
+  // optional -- Google sometimes includes this
+  quota_project_id?: string;
+}
+
+/**
+ * Defines interface of the schema for the expected service accounts.
+ */
+interface ServiceAccountCredential {
+  type: string;
+  project_id: string;
+  private_key_id: string;
+  private_key: string;
+  client_email: string;
+  client_id: string;
+  auth_uri: string;
+  token_uri: string;
+}
+
+export type JsonCredentialSchema =
+  | AuthorizedUserCredential
+  | ServiceAccountCredential;

@@ -2,22 +2,46 @@ import React from 'react';
 import { getProviderById } from '../../../utils/openclaw-providers';
 import { createTheme, ThemeProvider } from '@mui/material';
 import ProviderCredentialForm from '../ProviderCredentialForm';
-import { render, screen } from '@testing-library/react';
+import { extractGcpProjectId } from '../CredentialAccordion';
+import { fireEvent, render, screen } from '@testing-library/react';
 
 const gcpProvider = getProviderById('google-vertex')!;
 
 const theme = createTheme();
 
-const renderForm = (provider = gcpProvider) => {
+const validServiceAccount = JSON.stringify({
+  type: 'service_account',
+  project_id: 'my-project',
+  private_key_id: 'key-id-123',
+  private_key: '-----BEGIN PRIVATE KEY-----\nfake\n-----END PRIVATE KEY-----\n',
+  client_email: 'sa@my-project.iam.gserviceaccount.com',
+  client_id: '12345',
+  auth_uri: 'https://accounts.google.com/o/oauth2/auth',
+  token_uri: 'https://oauth2.googleapis.com/token',
+});
+
+const validAuthorizedUser = JSON.stringify({
+  type: 'authorized_user',
+  client_id: 'my-client-id.apps.googleusercontent.com',
+  client_secret: 'secret-123',
+  refresh_token: '1//refresh-token',
+});
+
+const renderForm = (
+  overrides: {
+    values?: Record<string, string>;
+    errors?: Record<string, string[]>;
+  } = {},
+) => {
   const onChange = jest.fn();
   return {
     onChange,
     ...render(
       <ThemeProvider theme={theme}>
         <ProviderCredentialForm
-          provider={provider}
-          values={{}}
-          errors={{}}
+          provider={gcpProvider}
+          values={overrides.values ?? {}}
+          errors={overrides.errors ?? {}}
           onChange={onChange}
         />
       </ThemeProvider>,
@@ -33,4 +57,132 @@ it('keeps the placeholder visible when ServiceAccountJsonField is empty', () => 
 
   const label = screen.getByText('Service Account Key');
   expect(label).toHaveAttribute('data-shrink', 'true');
+});
+
+describe('error display from parent errors prop', () => {
+  it('shows error messages for the service account key field', () => {
+    renderForm({
+      errors: { 'sa-key.json': ['Please input valid JSON.'] },
+    });
+
+    expect(screen.getByText('Please input valid JSON.')).toBeInTheDocument();
+  });
+
+  it('shows joined error messages when multiple errors exist', () => {
+    renderForm({
+      errors: {
+        'sa-key.json': [
+          'The "project_id" property is required.',
+          'Invalid email format specified.',
+        ],
+      },
+    });
+
+    const helperText = screen.getByText(
+      /The "project_id" property is required/,
+    );
+    expect(helperText.textContent).toContain('Invalid email format specified.');
+  });
+
+  it('shows error for the region field', () => {
+    renderForm({
+      errors: { region: ['The "Region" field is required'] },
+    });
+
+    expect(
+      screen.getByText('The "Region" field is required'),
+    ).toBeInTheDocument();
+  });
+
+  it('shows no errors when errors prop is empty', () => {
+    renderForm({ errors: {} });
+
+    expect(screen.queryByText(/is required/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Please input valid JSON.'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows errors for multiple fields simultaneously', () => {
+    renderForm({
+      errors: {
+        'sa-key.json': ['Please input valid JSON.'],
+        region: ['The "Region" field is required'],
+      },
+    });
+
+    expect(screen.getByText('Please input valid JSON.')).toBeInTheDocument();
+    expect(
+      screen.getByText('The "Region" field is required'),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('serviceAccountJson field delegates raw value to parent onChange', () => {
+  it('calls onChange only with the field key and raw value', () => {
+    const { onChange } = renderForm();
+
+    const textArea = screen.getByLabelText('Service Account Key');
+    fireEvent.change(textArea, { target: { value: validServiceAccount } });
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith('sa-key.json', validServiceAccount);
+  });
+
+  it('does not call onChange with project-id', () => {
+    const { onChange } = renderForm();
+
+    const textArea = screen.getByLabelText('Service Account Key');
+    fireEvent.change(textArea, { target: { value: validServiceAccount } });
+
+    expect(onChange).not.toHaveBeenCalledWith('project-id', expect.anything());
+  });
+});
+
+describe('extractGcpProjectId', () => {
+  it('returns project_id from a valid service_account JSON', () => {
+    expect(extractGcpProjectId(validServiceAccount)).toBe('my-project');
+  });
+
+  it('returns empty string for an authorized_user JSON', () => {
+    expect(extractGcpProjectId(validAuthorizedUser)).toBe('');
+  });
+
+  it('returns empty string for invalid JSON', () => {
+    expect(extractGcpProjectId('{not valid')).toBe('');
+  });
+
+  it.each([
+    ['a JSON array', JSON.stringify([{ project_id: 'sneaky' }])],
+    ['a JSON string', JSON.stringify('service_account')],
+    ['a JSON number', JSON.stringify(42)],
+    ['JSON null', 'null'],
+    ['a boolean', 'true'],
+  ])('returns empty string when parsed value is %s', (_label, jsonValue) => {
+    expect(extractGcpProjectId(jsonValue)).toBe('');
+  });
+
+  it('returns empty string when object has type service_account but no project_id', () => {
+    const json = JSON.stringify({
+      type: 'service_account',
+      client_email: 'a@b.com',
+    });
+    expect(extractGcpProjectId(json)).toBe('');
+  });
+
+  it('returns empty string when object is missing the type field', () => {
+    const json = JSON.stringify({
+      project_id: 'my-project',
+      client_email: 'a@b.com',
+    });
+    expect(extractGcpProjectId(json)).toBe('');
+  });
+
+  it('returns empty string when type is not service_account even with project_id', () => {
+    const json = JSON.stringify({
+      type: 'external_account',
+      project_id: 'my-project',
+    });
+    expect(extractGcpProjectId(json)).toBe('');
+  });
 });

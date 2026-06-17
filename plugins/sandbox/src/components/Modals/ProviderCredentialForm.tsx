@@ -36,16 +36,16 @@ const API_FORMAT_LABELS: Record<string, string> = {
 type ProviderCredentialFormProps = {
   provider: ProviderConfig;
   values: Record<string, string>;
-  errors: Record<string, boolean>;
+  errors: Record<string, string[]>;
   onChange: (key: string, value: string) => void;
 };
 
 const ApiKeyField: React.FC<{
   field: ProviderCredentialField;
   value: string;
-  error: boolean;
+  errors: string[];
   onChange: (value: string) => void;
-}> = ({ field, value, error, onChange }) => {
+}> = ({ field, value, errors, onChange }) => {
   const [visible, setVisible] = useState(false);
 
   return (
@@ -56,8 +56,8 @@ const ApiKeyField: React.FC<{
       type={visible ? 'text' : 'password'}
       value={value}
       onChange={e => onChange(e.target.value)}
-      error={error}
-      helperText={error ? `${field.label} is required` : ''}
+      error={errors.length > 0}
+      helperText={errors.length > 0 ? errors.join(' ') : ''}
       placeholder={field.placeholder}
       InputProps={{
         disableUnderline: true,
@@ -79,50 +79,12 @@ const ApiKeyField: React.FC<{
   );
 };
 
-/**
- * Special text field for the service accounts which has a palceholder always
- * enabled to help users determine which credential they need to use.
- * @param param0 parameters of the component.
- * @returns a "Service Account JSON field"
- */
-const ServiceAccountJsonField: React.FC<{
-  field: ProviderCredentialField;
-  value: string;
-  error: boolean;
-  onChange: (value: string) => void;
-}> = ({ field, value, error, onChange }) => {
-  return (
-    <>
-      <TextField
-        variant="filled"
-        fullWidth
-        label={field.label}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        error={error}
-        helperText={
-          error
-            ? 'Valid JSON with type "service_account" or "authorized_user" is required'
-            : ''
-        }
-        placeholder={field.placeholder}
-        multiline
-        minRows={11}
-        maxRows={11}
-        InputLabelProps={{ shrink: true }}
-        InputProps={{ disableUnderline: true }}
-        size="small"
-      />
-    </>
-  );
-};
-
 const ComboboxField: React.FC<{
   field: ProviderCredentialField;
   value: string;
-  error: boolean;
+  errors: string[];
   onChange: (value: string) => void;
-}> = ({ field, value, error, onChange }) => (
+}> = ({ field, value, errors, onChange }) => (
   <Autocomplete
     freeSolo
     options={field.options ?? []}
@@ -133,8 +95,8 @@ const ComboboxField: React.FC<{
         {...params}
         variant="filled"
         label={field.label}
-        error={error}
-        helperText={error ? `${field.label} is required` : ''}
+        error={errors.length > 0}
+        helperText={errors.length > 0 ? errors.join(' ') : ''}
         placeholder={field.placeholder}
         InputProps={{
           ...params.InputProps,
@@ -149,9 +111,9 @@ const ComboboxField: React.FC<{
 const SelectField: React.FC<{
   field: ProviderCredentialField;
   value: string;
-  error: boolean;
+  errors: string[];
   onChange: (value: string) => void;
-}> = ({ field, value, error, onChange }) => (
+}> = ({ field, value, errors, onChange }) => (
   <TextField
     variant="filled"
     fullWidth
@@ -159,8 +121,8 @@ const SelectField: React.FC<{
     label={field.label}
     value={value}
     onChange={e => onChange(e.target.value)}
-    error={error}
-    helperText={error ? `${field.label} is required` : ''}
+    error={errors.length > 0}
+    helperText={errors.length > 0 ? errors.join(' ') : ''}
     InputProps={{ disableUnderline: true }}
     size="small"
   >
@@ -182,7 +144,7 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
     <Stack spacing={2} sx={{ mt: 1 }}>
       {provider.fields.map(field => {
         const value = values[field.key] ?? '';
-        const hasError = errors[field.key] ?? false;
+        const fieldErrors = errors[field.key] ?? [];
 
         if (field.type === 'apiKey') {
           return (
@@ -190,7 +152,7 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
               key={field.key}
               field={field}
               value={value}
-              error={hasError}
+              errors={fieldErrors}
               onChange={v => onChange(field.key, v)}
             />
           );
@@ -198,12 +160,22 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
 
         if (field.type === 'serviceAccountJson') {
           return (
-            <ServiceAccountJsonField
+            <TextField
               key={field.key}
-              field={field}
+              variant="filled"
+              fullWidth
+              label={field.label}
               value={value}
-              error={hasError}
-              onChange={v => onChange(field.key, v)}
+              onChange={e => onChange(field.key, e.target.value)}
+              error={fieldErrors.length > 0}
+              helperText={fieldErrors.length > 0 ? fieldErrors.join(' ') : ''}
+              placeholder={field.placeholder}
+              multiline
+              minRows={11}
+              maxRows={11}
+              InputLabelProps={{ shrink: true }}
+              InputProps={{ disableUnderline: true }}
+              size="small"
             />
           );
         }
@@ -214,7 +186,7 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
               key={field.key}
               field={field}
               value={value}
-              error={hasError}
+              errors={fieldErrors}
               onChange={v => onChange(field.key, v)}
             />
           );
@@ -226,7 +198,7 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
               key={field.key}
               field={field}
               value={value}
-              error={hasError}
+              errors={fieldErrors}
               onChange={v => onChange(field.key, v)}
             />
           );
@@ -240,8 +212,8 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
             label={field.label}
             value={value}
             onChange={e => onChange(field.key, e.target.value)}
-            error={hasError}
-            helperText={hasError ? `${field.label} is required` : ''}
+            error={fieldErrors.length > 0}
+            helperText={fieldErrors.length > 0 ? fieldErrors.join(' ') : ''}
             placeholder={field.placeholder}
             InputProps={{ disableUnderline: true }}
             size="small"
