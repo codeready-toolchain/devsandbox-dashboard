@@ -44,6 +44,7 @@ import {
   ProviderCategory,
   ProviderConfig,
 } from '../../utils/openclaw-providers';
+import { JsonCredentialSchema } from '../../types/openclaw';
 import { ProviderCredentialForm } from './ProviderCredentialForm';
 
 type CredentialEntry = {
@@ -88,28 +89,53 @@ const getCredentialSummary = (entry: CredentialEntry): string => {
 const validateFields = (
   provider: ProviderConfig,
   values: Record<string, string>,
-): Record<string, boolean> => {
-  const errors: Record<string, boolean> = {};
+): Record<string, string[]> => {
+  const errors: Record<string, string[]> = {};
+
   for (const field of provider.fields) {
+    // Extract the value from the field without any leading or trailing
+    // whitespaces.
     const value = values[field.key]?.trim();
+
+    // Enforce "required" before any custom validation so that empty required
+    // fields are always caught, even when a custom validator treats empty
+    // input as a no-op.
     if (field.required && !value) {
-      errors[field.key] = true;
-    } else if (field.type === 'serviceAccountJson' && value) {
-      try {
-        const parsed = JSON.parse(value);
-        if (
-          parsed.type !== 'service_account' &&
-          parsed.type !== 'authorized_user'
-        ) {
-          errors[field.key] = true;
-        }
-      } catch {
-        errors[field.key] = true;
+      errors[field.key] = [`The "${field.label}" field is required`];
+      continue;
+    }
+
+    // If the field has a custom validate function defined, run it.
+    if (field.validate) {
+      const msgs = field.validate(value);
+      if (msgs.length > 0) {
+        errors[field.key] = msgs;
       }
+
+      continue;
     }
   }
+
   return errors;
 };
+
+export function extractGcpProjectId(json: string): string {
+  try {
+    const parsed: JsonCredentialSchema = JSON.parse(json);
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      'type' in parsed &&
+      parsed.type === 'service_account' &&
+      'project_id' in parsed
+    ) {
+      return parsed.project_id;
+    }
+  } catch {
+    // Invalid JSON — fall through to empty string.
+  }
+  return '';
+}
 
 const accordionSx = {
   mb: 1,
@@ -146,9 +172,9 @@ export const CredentialAccordion = forwardRef<
     { id: 'cred-1', provider: null, values: {} },
   ]);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [errors, setErrors] = useState<Record<string, Record<string, boolean>>>(
-    {},
-  );
+  const [errors, setErrors] = useState<
+    Record<string, Record<string, string[]>>
+  >({});
   const nextIdRef = useRef(1);
 
   const credentialCount = useMemo(
@@ -234,19 +260,49 @@ export const CredentialAccordion = forwardRef<
    * as soon as the user starts correcting the input.
    */
   const handleFieldChange = useCallback(
-    (entryId: string, key: string, value: string) => {
+    (entryId: string, fieldKey: string, fieldValue: string) => {
+      const entry = entries.find(e => e.id === entryId);
+      const field = entry?.provider?.fields.find(f => f.key === fieldKey);
+
+      const valuesUpdate: Record<string, string> = { [fieldKey]: fieldValue };
+      if (field?.type === 'serviceAccountJson') {
+        valuesUpdate['project-id'] = extractGcpProjectId(fieldValue);
+      }
+
       setEntries(prev =>
         prev.map(e =>
           e.id === entryId
-            ? { ...e, values: { ...e.values, [key]: value } }
+            ? { ...e, values: { ...e.values, ...valuesUpdate } }
             : e,
         ),
       );
+
       setErrors(prev => {
-        // No error to clear — skip unnecessary state update
-        if (!prev[entryId]?.[key]) return prev;
+        // When the field has a validator, run it to provide instant feedback
+        // if there are any errors.
+        if (field?.validate) {
+          const msgs = field.validate(fieldValue.trim());
+          if (msgs.length > 0) {
+            return {
+              ...prev,
+              [entryId]: { ...prev[entryId], [fieldKey]: msgs },
+            };
+          }
+
+          // At this point there are no errors, so we need to clear the errors
+          // from the field.
+          const { [fieldKey]: _, ...rest } = prev[entryId] ?? {};
+          if (Object.keys(rest).length === 0) {
+            const { [entryId]: __, ...remaining } = prev;
+            return remaining;
+          }
+          return { ...prev, [entryId]: rest };
+        }
+
+        // When there are no validators, simply clear the submit-time error.
+        if (!prev[entryId]?.[fieldKey]) return prev;
         // Remove the specific field error from this entry
-        const { [key]: _, ...entryErrors } = prev[entryId];
+        const { [fieldKey]: _, ...entryErrors } = prev[entryId];
         // If no errors remain for this entry, remove the entry key entirely
         if (Object.keys(entryErrors).length === 0) {
           const { [entryId]: __, ...rest } = prev;
@@ -255,7 +311,7 @@ export const CredentialAccordion = forwardRef<
         return { ...prev, [entryId]: entryErrors };
       });
     },
-    [],
+    [entries],
   );
 
   useImperativeHandle(
@@ -269,7 +325,7 @@ export const CredentialAccordion = forwardRef<
         if (withProvider.length === 0) return null;
 
         let hasErrors = false;
-        const newErrors: Record<string, Record<string, boolean>> = {};
+        const newErrors: Record<string, Record<string, string[]>> = {};
         const newExpandedIds = new Set(expandedIds);
 
         for (const entry of withProvider) {
