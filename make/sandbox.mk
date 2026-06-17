@@ -39,6 +39,15 @@ start-rhdh-local: clone-rhdh-local generate-env
 	rm -rf plugins/sandbox/dist-dynamic
 	rm -rf red-hat-developer-hub-backstage-plugin-sandbox
 	podman run -it --rm -w /home -v $(PWD):/home node:22 bash -c "yarn install && NODE_OPTIONS='--max-old-space-size=4096' npx --yes @red-hat-developer-hub/cli@1.10.0 plugin package --export-to .  && exit"
+	@if [ ! -d "red-hat-developer-hub-backstage-plugin-sandbox/dist-scalprum" ] || [ -z "$$(ls -A red-hat-developer-hub-backstage-plugin-sandbox/dist-scalprum 2>/dev/null)" ]; then \
+		echo ""; \
+		echo "ERROR: dist-scalprum is missing or empty in the packaged plugin."; \
+		echo "The scalprum build likely failed silently (OOM kill is a common cause)."; \
+		echo "If running on macOS, ensure your podman machine has enough memory:"; \
+		echo "  podman machine stop && podman machine set --memory 8192 && podman machine start"; \
+		echo ""; \
+		exit 1; \
+	fi
 	cp -r red-hat-developer-hub-backstage-plugin-sandbox $(RHDH_LOCAL_DIR)/local-plugins/
 	cp deploy/base/app-config.yaml $(RHDH_LOCAL_DIR)/configs/app-config/app-config.yaml
 	cp deploy/base/dynamic-plugins.yaml $(RHDH_LOCAL_DIR)/configs/dynamic-plugins/dynamic-plugins.override.yaml
