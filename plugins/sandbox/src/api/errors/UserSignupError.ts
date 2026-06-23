@@ -35,13 +35,14 @@ export default class UserSignupError extends Error {
 
     const { message, details } = body;
     switch (true) {
-      case message.includes('invalid code'):
+      case message.includes('invalid code'): {
         const baseErrMessage = 'The provided activation code is invalid';
         if (details) {
           return new UserSignupError(`${baseErrMessage}: ${details}`);
         } else {
           return new UserSignupError(baseErrMessage);
         }
+      }
       case message.includes('has been suspended'):
         return new UserSignupError(
           'Access to the Developer Sandbox has been suspended due to suspicious activity or detected abuse',
