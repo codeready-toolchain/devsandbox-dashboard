@@ -20,6 +20,7 @@ import { isValidCountryCode, isValidPhoneNumber } from '../utils/phone-utils';
 import { CommonResponse, SignupData } from '../types';
 import { SecureFetchApi } from './SecureFetchClient';
 import { SandboxEnvironment } from '../const';
+import UserSignupError from './errors/UserSignupError';
 
 export type RegistrationBackendClientOptions = {
   configApi: ConfigApi;
@@ -72,15 +73,11 @@ export class RegistrationBackendClient implements RegistrationService {
     const response = await this.secureFetchApi.fetch(signupURL, {
       method: 'GET',
     });
-    if (!response.ok) {
-      if (response.status === 404) {
-        return undefined;
-      }
-      throw new Error(
-        `Unexpected status code: ${response.status} ${response.statusText}`,
-      );
+    if (response.ok) {
+      return response.json();
     }
-    return response.json();
+
+    throw await UserSignupError.fromResponse(response);
   };
 
   getRecaptchaToken = async (): Promise<string> => {

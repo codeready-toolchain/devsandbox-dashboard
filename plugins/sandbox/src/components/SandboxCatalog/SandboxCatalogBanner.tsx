@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import React from 'react';
+import React, { useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
@@ -29,11 +29,18 @@ import { useTheme } from '@mui/material/styles';
 import Image from '../../assets/images/sandbox-banner-image.svg';
 import { useSandboxContext } from '../../hooks/useSandboxContext';
 import { calculateDaysBetweenDates } from '../../utils/common';
+import { alertApiRef, useApi } from '@backstage/core-plugin-api';
 
 export const SandboxCatalogBanner: React.FC = () => {
   const theme = useTheme();
-  const { userData, pendingApproval, verificationRequired, loading } =
-    useSandboxContext();
+  const alertApi = useApi(alertApiRef);
+  const {
+    userData,
+    signupError,
+    pendingApproval,
+    verificationRequired,
+    loading,
+  } = useSandboxContext();
   const [anchorEl, setAnchorEl] = React.useState<HTMLElement | null>(null);
 
   const calculateDaysLeft = React.useCallback(() => {
@@ -52,6 +59,12 @@ export const SandboxCatalogBanner: React.FC = () => {
   const handlePopoverClose = () => {
     setAnchorEl(null);
   };
+
+  useEffect(() => {
+    if (signupError) {
+      alertApi.post({ message: signupError, severity: 'error' });
+    }
+  }, [signupError, alertApi]);
 
   const open = Boolean(anchorEl);
 

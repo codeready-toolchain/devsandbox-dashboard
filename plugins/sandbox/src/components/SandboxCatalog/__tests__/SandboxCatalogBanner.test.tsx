@@ -35,12 +35,18 @@ const SandboxContext = React.createContext<{
   pendingApproval: false,
 });
 
+const mockAlertApi = { post: jest.fn() };
+
 jest.mock(
   '../../../assets/images/sandbox-banner-image.svg',
   () => 'mocked-image-path',
 );
 jest.mock('../../../hooks/useSandboxContext', () => ({
   useSandboxContext: jest.fn(),
+}));
+jest.mock('@backstage/core-plugin-api', () => ({
+  ...jest.requireActual('@backstage/core-plugin-api'),
+  useApi: () => mockAlertApi,
 }));
 
 describe('SandboxCatalogBanner', () => {
@@ -57,6 +63,7 @@ describe('SandboxCatalogBanner', () => {
     contextValue: Partial<{
       loading: boolean;
       userData?: SignupData;
+      signupError?: string;
       userFound: boolean;
       userReady: boolean;
       verificationRequired: boolean;
@@ -68,6 +75,7 @@ describe('SandboxCatalogBanner', () => {
     mockUseSandboxContext.mockReturnValue({
       loading: false,
       userData: undefined,
+      signupError: undefined,
       userFound: false,
       userReady: false,
       verificationRequired: false,
@@ -404,5 +412,21 @@ describe('SandboxCatalogBanner', () => {
     expect(docLink).toHaveAttribute('rel', 'noopener noreferrer');
 
     jest.restoreAllMocks();
+  });
+
+  it('posts an alert when signupError is set', () => {
+    const errorMessage = 'Access to the Developer Sandbox has been denied';
+    renderWithProviders({ signupError: errorMessage });
+
+    expect(mockAlertApi.post).toHaveBeenCalledWith({
+      message: errorMessage,
+      severity: 'error',
+    });
+  });
+
+  it('does not post an alert when signupError is undefined', () => {
+    renderWithProviders();
+
+    expect(mockAlertApi.post).not.toHaveBeenCalled();
   });
 });
