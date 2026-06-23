@@ -4,7 +4,7 @@ import { CommonResponse } from '../../types';
  * Defines the error type that is useful for problems with the user's signup.
  */
 export default class UserSignupError extends Error {
-  constructor(readonly message: string) {
+  constructor(message: string) {
     super(message);
   }
 
