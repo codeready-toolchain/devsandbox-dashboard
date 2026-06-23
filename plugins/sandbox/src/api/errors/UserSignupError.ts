@@ -33,25 +33,26 @@ export default class UserSignupError extends Error {
       return new UserSignupError(defaultErrorMessage);
     }
 
+    const { message, details } = body;
     switch (true) {
-      case body?.message.includes('invalid code'):
+      case message.includes('invalid code'):
         const baseErrMessage = 'The provided activation code is invalid';
-        if (body.details) {
-          return new UserSignupError(`${baseErrMessage}: ${body.details}`);
+        if (details) {
+          return new UserSignupError(`${baseErrMessage}: ${details}`);
         } else {
           return new UserSignupError(baseErrMessage);
         }
-      case body?.message.includes('has been suspended'):
+      case message.includes('has been suspended'):
         return new UserSignupError(
           'Access to the Developer Sandbox has been suspended due to suspicious activity or detected abuse',
         );
-      case body?.message.includes('has been denied'):
+      case message.includes('has been denied'):
         return new UserSignupError(
           'Access to the Developer Sandbox has been denied',
         );
-      case body?.message.includes('failed to create usersignup for'):
+      case message.includes('failed to create usersignup for'):
         return new UserSignupError('A CRT admin is not allowed to sign up');
-      case body?.message.includes(
+      case message.includes(
         'there is already an active UserSignup with such a username',
       ):
         return new UserSignupError(
