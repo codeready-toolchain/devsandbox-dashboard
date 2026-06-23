@@ -181,6 +181,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       }
       if (result) {
         setUserFound(true);
+        setSignupError(undefined);
       } else {
         setUserFound(false);
       }
