@@ -76,7 +76,7 @@ describe('RegistrationBackendClient', () => {
       expect(result).toEqual(mockData);
     });
 
-    it('should throw a UserSignupError on a 404 response', async () => {
+    it('should return undefined on a 404 response', async () => {
       mockConfigApi.getString.mockReturnValue('http://api');
       mockSecureFetchApi.fetch.mockResolvedValue(
         createMockResponse({
@@ -85,7 +85,8 @@ describe('RegistrationBackendClient', () => {
         }),
       );
 
-      await expect(client.getSignUpData()).rejects.toThrow(UserSignupError);
+      const result = await client.getSignUpData();
+      expect(result).toBeUndefined();
     });
 
     it('should throw a UserSignupError on a 500 response', async () => {

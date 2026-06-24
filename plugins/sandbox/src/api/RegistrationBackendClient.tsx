@@ -68,6 +68,11 @@ export class RegistrationBackendClient implements RegistrationService {
     );
   };
 
+  /**
+   * Get the "UserSignup" resource for the current user.
+   * @returns the current user's signup resource or code undefined it is not
+   * found.
+   */
   getSignUpData = async (): Promise<SignupData | undefined> => {
     const signupURL = await this.signupAPI();
     const response = await this.secureFetchApi.fetch(signupURL, {
@@ -77,6 +82,13 @@ export class RegistrationBackendClient implements RegistrationService {
       return response.json();
     }
 
+    // The user signup is not found, we return undefined to signal that it is
+    // safe to create it instead.
+    if (response.status === 404) {
+      return undefined;
+    }
+
+    // At this point we need to signal the user that something went wrong.
     throw await UserSignupError.fromResponse(response);
   };
 
