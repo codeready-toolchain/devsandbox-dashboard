@@ -240,8 +240,18 @@ export const CredentialAccordion = forwardRef<
 
   const handleProviderSelect = useCallback(
     (entryId: string, provider: ProviderConfig | null) => {
+      const defaults: Record<string, string> = {};
+      if (provider) {
+        for (const field of provider.fields) {
+          if (field.defaultValue) {
+            defaults[field.key] = field.defaultValue;
+          }
+        }
+      }
       setEntries(prev =>
-        prev.map(e => (e.id === entryId ? { ...e, provider, values: {} } : e)),
+        prev.map(e =>
+          e.id === entryId ? { ...e, provider, values: defaults } : e,
+        ),
       );
       if (provider) {
         setExpandedIds(prev => new Set([...prev, entryId]));

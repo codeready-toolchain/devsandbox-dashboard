@@ -91,6 +91,7 @@ const gcpFields = (regionSuggestions: string[]): ProviderCredentialField[] => [
     required: true,
     placeholder: 'Select or type your region',
     options: regionSuggestions,
+    defaultValue: 'global',
   },
 ];
 
@@ -157,10 +158,20 @@ export const PROVIDERS: ProviderConfig[] = [
     keyUrl: 'https://console.cloud.google.com/iam-admin/serviceaccounts',
     fields: gcpFields([
       'global',
+      'us',
+      'eu',
       'us-central1',
+      'us-east1',
       'us-east4',
+      'us-east5',
+      'us-south1',
+      'us-west1',
+      'us-west4',
       'europe-west1',
+      'europe-west4',
+      'europe-west9',
       'asia-northeast1',
+      'asia-southeast1',
     ]),
   },
   {
@@ -170,7 +181,15 @@ export const PROVIDERS: ProviderConfig[] = [
     category: 'advanced',
     credentialType: 'gcp',
     keyUrl: 'https://console.cloud.google.com/vertex-ai/publishers/anthropic',
-    fields: gcpFields(['us-east5', 'europe-west1', 'europe-west4']),
+    fields: gcpFields([
+      'global',
+      'us',
+      'eu',
+      'us-east5',
+      'europe-west1',
+      'europe-west4',
+      'asia-southeast1',
+    ]),
   },
 
   // Custom / Self-Hosted.
