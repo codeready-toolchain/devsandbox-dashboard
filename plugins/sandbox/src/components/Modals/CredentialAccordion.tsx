@@ -122,14 +122,14 @@ const validateFields = (
 export function extractGcpProjectId(json: string): string {
   try {
     const parsed: JsonCredentialSchema = JSON.parse(json);
-    if (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      'type' in parsed &&
-      parsed.type === 'service_account' &&
-      'project_id' in parsed
-    ) {
+    if (typeof parsed !== 'object' || parsed === null || !('type' in parsed)) {
+      return '';
+    }
+    if (parsed.type === 'service_account' && 'project_id' in parsed) {
       return parsed.project_id;
+    }
+    if (parsed.type === 'authorized_user' && 'quota_project_id' in parsed) {
+      return parsed.quota_project_id ?? '';
     }
   } catch {
     // Invalid JSON — fall through to empty string.
@@ -240,8 +240,18 @@ export const CredentialAccordion = forwardRef<
 
   const handleProviderSelect = useCallback(
     (entryId: string, provider: ProviderConfig | null) => {
+      const defaults: Record<string, string> = {};
+      if (provider) {
+        for (const field of provider.fields) {
+          if (field.defaultValue) {
+            defaults[field.key] = field.defaultValue;
+          }
+        }
+      }
       setEntries(prev =>
-        prev.map(e => (e.id === entryId ? { ...e, provider, values: {} } : e)),
+        prev.map(e =>
+          e.id === entryId ? { ...e, provider, values: defaults } : e,
+        ),
       );
       if (provider) {
         setExpandedIds(prev => new Set([...prev, entryId]));
