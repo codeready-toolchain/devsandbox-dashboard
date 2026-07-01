@@ -122,14 +122,14 @@ const validateFields = (
 export function extractGcpProjectId(json: string): string {
   try {
     const parsed: JsonCredentialSchema = JSON.parse(json);
-    if (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      'type' in parsed &&
-      parsed.type === 'service_account' &&
-      'project_id' in parsed
-    ) {
+    if (typeof parsed !== 'object' || parsed === null || !('type' in parsed)) {
+      return '';
+    }
+    if (parsed.type === 'service_account' && 'project_id' in parsed) {
       return parsed.project_id;
+    }
+    if (parsed.type === 'authorized_user' && 'quota_project_id' in parsed) {
+      return parsed.quota_project_id ?? '';
     }
   } catch {
     // Invalid JSON — fall through to empty string.

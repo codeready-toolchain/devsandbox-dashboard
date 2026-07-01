@@ -144,8 +144,19 @@ describe('extractGcpProjectId', () => {
     expect(extractGcpProjectId(validServiceAccount)).toBe('my-project');
   });
 
-  it('returns empty string for an authorized_user JSON', () => {
+  it('returns empty string for an authorized_user JSON without quota_project_id', () => {
     expect(extractGcpProjectId(validAuthorizedUser)).toBe('');
+  });
+
+  it('returns quota_project_id from an authorized_user JSON', () => {
+    const withQuota = JSON.stringify({
+      type: 'authorized_user',
+      client_id: 'my-client-id.apps.googleusercontent.com',
+      client_secret: 'secret-123',
+      refresh_token: '1//refresh-token',
+      quota_project_id: 'my-quota-project',
+    });
+    expect(extractGcpProjectId(withQuota)).toBe('my-quota-project');
   });
 
   it('returns empty string for invalid JSON', () => {
