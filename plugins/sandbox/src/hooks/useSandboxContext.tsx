@@ -47,6 +47,7 @@ import {
   useSegmentAnalytics,
   SegmentTrackingData,
 } from '../utils/segment-analytics';
+import UserSignupError from '../api/errors/UserSignupError';
 
 interface AAPDataResult {
   status: AnsibleStatus;
@@ -65,6 +66,7 @@ interface SandboxContextType {
   verificationRequired: boolean;
   pendingApproval: boolean;
   userData: SignupData | undefined;
+  signupError: string | undefined;
   loading: boolean;
   refetchUserData: () => Promise<SignupData | undefined>;
   signupUser: () => void;
@@ -122,6 +124,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
   const [statusUnknown, setStatusUnknown] = useState(true);
   const [userFound, setUserFound] = useState<boolean>(false);
   const [userData, setData] = useState<SignupData | undefined>(undefined);
+  const [signupError, setSignupError] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(true);
   const [userReady, setUserReady] = useState<boolean>(false);
   const [verificationRequired, setVerificationRequired] =
@@ -178,6 +181,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       }
       if (result) {
         setUserFound(true);
+        setSignupError(undefined);
       } else {
         setUserFound(false);
       }
@@ -186,6 +190,10 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
       console.error('Error fetching user data:', err);
       setData(undefined);
       setUserFound(false);
+
+      if (!isRefetch && err instanceof UserSignupError) {
+        setSignupError(err.message);
+      }
     } finally {
       setLoading(false);
       setStatusUnknown(false);
@@ -670,6 +678,7 @@ export const SandboxProvider: React.FC<{ children: React.ReactNode }> = ({
         verificationRequired,
         pendingApproval,
         userData,
+        signupError,
         loading,
         refetchUserData: fetchData,
         signupUser,
