@@ -266,6 +266,12 @@ export const AAPObject: string = `
                }
             }
          },
+         "metrics":{
+            "ms_awx_readonly_user_secret":"sandbox-aap-controller-postgres-configuration",
+            "database":{
+               "externally_managed":true
+            }
+         },
          "ui":{
             "replicas":1,
             "resource_requirements":{
