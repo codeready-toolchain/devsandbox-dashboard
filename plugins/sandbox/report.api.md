@@ -34,5 +34,8 @@ export const sandboxPlugin: BackstagePlugin<
   {}
 >;
 
+// @public
+export const SandboxResetWorkspaces: () => JSX_2.Element;
+
 // (No @packageDocumentation comment for this package)
 ```

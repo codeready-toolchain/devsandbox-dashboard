@@ -1,0 +1,12 @@
+inheritance: true
+knowledge_base:
+  linked_repositories:
+    - repository: 'codeready-toolchain/registration-service'
+      instructions: |
+        registration-service is the backend API that this dashboard calls for signup, verification, UI config, analytics, and namespace reset flows.
+
+        When reviewing changes:
+        - If the dashboard changes API calls (RegistrationBackendClient), verify that the expected endpoints, request/response shapes, and status codes match what registration-service actually exposes under /api/v1.
+        - If the dashboard adds or modifies signup, verification, or namespace-reset logic, check whether registration-service already handles that concern server-side to avoid duplicating backend responsibilities in the frontend.
+        - Flag if the dashboard is making assumptions about registration-service behavior (e.g. specific error codes, redirect flows, segment write-key format) that isn't documented or guaranteed in the backend.
+        - If registration-service has introduced new endpoints or changed existing ones, ensure the dashboard's API client and types stay in sync.

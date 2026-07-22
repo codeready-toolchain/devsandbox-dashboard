@@ -19,9 +19,9 @@ import Button from '@mui/material/Button';
 import { Theme } from '@mui/material/styles';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CircularProgress from '@mui/material/CircularProgress';
-import { Link } from '@backstage/core-components';
 import { useSandboxContext } from '../../hooks/useSandboxContext';
 import { AnsibleStatus } from '../../utils/aap-utils';
+import { OpenClawStatus } from '../../utils/openclaw-utils';
 import { Product } from './productData';
 import { useTrackAnalytics } from '../../utils/eddl-utils';
 import { Intcmp } from '../../hooks/useProductURLs';
@@ -38,8 +38,14 @@ type SandboxCatalogCardButtonProps = {
 export const SandboxCatalogCardButton: React.FC<
   SandboxCatalogCardButtonProps
 > = ({ link, id, title, handleTryButtonClick, theme, refetchingUserData }) => {
-  const { loading, userFound, verificationRequired, userReady, ansibleStatus } =
-    useSandboxContext();
+  const {
+    loading,
+    userFound,
+    verificationRequired,
+    userReady,
+    ansibleStatus,
+    openclawStatus,
+  } = useSandboxContext();
   const [clicked, setClicked] = React.useState(false);
   const trackAnalytics = useTrackAnalytics();
 
@@ -48,18 +54,38 @@ export const SandboxCatalogCardButton: React.FC<
     handleTryButtonClick(id);
   };
 
+  if (id === Product.OPENCLAW && openclawStatus === OpenClawStatus.DELETING) {
+    return null;
+  }
+
+  const getProvisionableLabel = (
+    productStatus: string,
+    idled: string,
+    provisioning: string,
+    ready: string,
+  ) => {
+    if (productStatus === idled) return 'Reprovision';
+    if (productStatus === provisioning) return 'Provisioning';
+    if (productStatus === ready) return 'Launch';
+    return 'Provision';
+  };
+
   const label = (() => {
     if (id === Product.AAP) {
-      if (ansibleStatus === AnsibleStatus.IDLED) {
-        return 'Reprovision';
-      }
-      if (ansibleStatus === AnsibleStatus.PROVISIONING) {
-        return 'Provisioning';
-      }
-      if (ansibleStatus === AnsibleStatus.READY) {
-        return 'Launch';
-      }
-      return 'Provision';
+      return getProvisionableLabel(
+        ansibleStatus,
+        AnsibleStatus.IDLED,
+        AnsibleStatus.PROVISIONING,
+        AnsibleStatus.READY,
+      );
+    }
+    if (id === Product.OPENCLAW) {
+      return getProvisionableLabel(
+        openclawStatus,
+        OpenClawStatus.IDLED,
+        OpenClawStatus.PROVISIONING,
+        OpenClawStatus.READY,
+      );
     }
     return 'Try it';
   })();
@@ -71,15 +97,23 @@ export const SandboxCatalogCardButton: React.FC<
     (refetchingUserData && clicked)
   ) {
     endIcon = <CircularProgress size={20} />;
-  } else if (id !== Product.AAP) {
-    endIcon = <OpenInNewIcon />;
-  } else if (
-    ansibleStatus === AnsibleStatus.UNKNOWN ||
-    ansibleStatus === AnsibleStatus.PROVISIONING
-  ) {
-    endIcon = <CircularProgress size={20} />;
+  } else if (id === Product.AAP) {
+    if (
+      ansibleStatus === AnsibleStatus.UNKNOWN ||
+      ansibleStatus === AnsibleStatus.PROVISIONING
+    ) {
+      endIcon = <CircularProgress size={20} />;
+    } else {
+      endIcon = null;
+    }
+  } else if (id === Product.OPENCLAW) {
+    if (openclawStatus === OpenClawStatus.PROVISIONING) {
+      endIcon = <CircularProgress size={20} />;
+    } else {
+      endIcon = null;
+    }
   } else {
-    endIcon = null;
+    endIcon = <OpenInNewIcon />;
   }
 
   const buttonSx = {
@@ -93,72 +127,47 @@ export const SandboxCatalogCardButton: React.FC<
     },
   };
 
-  // Get the intcmp parameter for this product
-  const getIntcmpFromProduct = (productId: Product): string | undefined => {
-    switch (productId) {
-      case Product.OPENSHIFT_CONSOLE:
-        return Intcmp.OPENSHIFT_CONSOLE;
-      case Product.DEVSPACES:
-        return Intcmp.DEVSPACES;
-      case Product.OPENSHIFT_AI:
-        return Intcmp.RHODS;
-      case Product.OPENSHIFT_VIRT:
-        return Intcmp.OPENSHIFT_VIRT;
-      case Product.AAP:
-        return Intcmp.AAP;
-      default:
-        return undefined;
-    }
+  const intcmpMap: Record<Product, string | undefined> = {
+    [Product.OPENSHIFT_CONSOLE]: Intcmp.OPENSHIFT_CONSOLE,
+    [Product.DEVSPACES]: Intcmp.DEVSPACES,
+    [Product.OPENSHIFT_AI]: Intcmp.RHODS,
+    [Product.OPENSHIFT_VIRT]: Intcmp.OPENSHIFT_VIRT,
+    [Product.AAP]: Intcmp.AAP,
+    [Product.OPENCLAW]: Intcmp.OPENCLAW,
   };
 
-  const intcmp = getIntcmpFromProduct(id);
+  const intcmp = intcmpMap[id];
 
-  // Handle CTA click for analytics
-  const handleCtaClick = async () => {
-    await trackAnalytics(title, 'Catalog', link, intcmp, 'cta');
-  };
+  const isReadyUser = userFound && !loading && !verificationRequired;
+  const isExternalProduct = id !== Product.AAP && id !== Product.OPENCLAW;
 
-  const buttonContent = (
+  // For non-AAP/non-OpenClaw products, href makes MUI render an <a> tag so
+  // dpal.js can read href/isExitLink/targetHost. target="_blank" lets the
+  // browser open the tab natively without depending on dpal.js re-navigation.
+  const linkProps =
+    isReadyUser && userReady && isExternalProduct
+      ? { href: link, target: '_blank', rel: 'noopener noreferrer' }
+      : {};
+
+  return (
     <Button
       size="medium"
       color="primary"
       variant="outlined"
+      {...linkProps}
       onClick={() => {
         if (!loading) {
           handleClick();
+          trackAnalytics(title, 'Catalog', link, intcmp, 'cta');
         }
       }}
       endIcon={endIcon}
       sx={buttonSx}
-    >
-      {label}
-    </Button>
-  );
-
-  return userFound && !loading && !verificationRequired ? (
-    <Link
-      to={link}
-      underline="none"
-      onClick={handleCtaClick}
-      data-analytics-track-by-analytics-manager="false"
-    >
-      {buttonContent}
-    </Link>
-  ) : (
-    // When there's no link, we push CTA event on button click
-    <Button
-      size="medium"
-      color="primary"
-      variant="outlined"
-      onClick={() => {
-        if (!loading) {
-          handleClick();
-          handleCtaClick();
-        }
-      }}
-      endIcon={endIcon}
-      sx={buttonSx}
-      data-analytics-track-by-analytics-manager="false"
+      data-analytics-linktype="cta"
+      data-analytics-text={label}
+      data-analytics-category={`Developer Sandbox|Catalog|${title}`}
+      data-analytics-region="sandbox-catalog"
+      data-analytics-offerid={intcmp}
     >
       {label}
     </Button>

@@ -17,35 +17,8 @@
 import { ConfigApi } from '@backstage/core-plugin-api';
 import { RegistrationBackendClient } from '../RegistrationBackendClient';
 import { SecureFetchApi } from '../SecureFetchClient';
-
-// Helper to create a mock Response object
-const createMockResponse = (options: {
-  ok: boolean;
-  status?: number;
-  statusText?: string;
-  json?: () => Promise<any>;
-}): Response => {
-  const { ok, status = 200, statusText = '', json } = options;
-  return {
-    ok,
-    status,
-    statusText,
-    headers: new Headers(),
-    redirected: false,
-    type: 'basic',
-    url: 'http://mock',
-    json: json || (() => Promise.resolve({})),
-    text: () => Promise.resolve(''),
-    blob: () => Promise.resolve(new Blob()),
-    arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
-    formData: () => Promise.resolve(new FormData()),
-    bodyUsed: false,
-    body: null,
-    clone: function () {
-      return this;
-    },
-  } as Response;
-};
+import { createMockResponse } from '../../test-utils/mockResponse';
+import UserSignupError from '../errors/UserSignupError';
 
 describe('RegistrationBackendClient', () => {
   let mockConfigApi: jest.Mocked<ConfigApi>;
@@ -103,7 +76,7 @@ describe('RegistrationBackendClient', () => {
       expect(result).toEqual(mockData);
     });
 
-    it('should return undefined on 404 response', async () => {
+    it('should return undefined on a 404 response', async () => {
       mockConfigApi.getString.mockReturnValue('http://api');
       mockSecureFetchApi.fetch.mockResolvedValue(
         createMockResponse({
@@ -116,7 +89,7 @@ describe('RegistrationBackendClient', () => {
       expect(result).toBeUndefined();
     });
 
-    it('should throw error on other unsuccessful responses', async () => {
+    it('should throw a UserSignupError on a 500 response', async () => {
       mockConfigApi.getString.mockReturnValue('http://api');
       mockSecureFetchApi.fetch.mockResolvedValue(
         createMockResponse({
@@ -126,8 +99,28 @@ describe('RegistrationBackendClient', () => {
         }),
       );
 
+      await expect(client.getSignUpData()).rejects.toThrow(UserSignupError);
       await expect(client.getSignUpData()).rejects.toThrow(
-        'Unexpected status code: 500 Server Error',
+        'Unable to sign you up into Developer Sandbox. Please contact devsandbox@redhat.com',
+      );
+    });
+
+    it('should throw a UserSignupError with the correct message for a known error', async () => {
+      mockConfigApi.getString.mockReturnValue('http://api');
+      mockSecureFetchApi.fetch.mockResolvedValue(
+        createMockResponse({
+          ok: false,
+          status: 403,
+          json: () =>
+            Promise.resolve({
+              message: 'user has been suspended',
+            }),
+        }),
+      );
+
+      await expect(client.getSignUpData()).rejects.toThrow(UserSignupError);
+      await expect(client.getSignUpData()).rejects.toThrow(
+        'Access to the Developer Sandbox has been suspended due to suspicious activity or detected abuse',
       );
     });
   });
@@ -289,6 +282,28 @@ describe('RegistrationBackendClient', () => {
       );
     });
 
+    it('should return UI config with disabledIntegrations', async () => {
+      const mockUIConfig = {
+        workatoWebHookURL: 'https://webhooks.test',
+        disabledIntegrations: ['openshift-console', 'devspaces'],
+      };
+
+      mockSecureFetchApi.fetch.mockResolvedValue(
+        createMockResponse({
+          ok: true,
+          json: () => Promise.resolve(mockUIConfig),
+        }),
+      );
+
+      const result = await client.getUIConfig();
+
+      expect(result).toEqual(mockUIConfig);
+      expect(result.disabledIntegrations).toEqual([
+        'openshift-console',
+        'devspaces',
+      ]);
+    });
+
     it('should return empty config if workatoWebHookURL is not present', async () => {
       const mockUIConfig = {};
 
@@ -303,6 +318,7 @@ describe('RegistrationBackendClient', () => {
 
       expect(result).toEqual({});
       expect(result.workatoWebHookURL).toBeUndefined();
+      expect(result.disabledIntegrations).toBeUndefined();
     });
 
     it('should return empty config on unsuccessful response', async () => {
@@ -325,6 +341,64 @@ describe('RegistrationBackendClient', () => {
       const result = await client.getUIConfig();
 
       expect(result).toEqual({});
+    });
+  });
+
+  describe('reset user namespaces', () => {
+    const expectedGenericError =
+      'Unable to reset your workspaces. Please, try again later, and if your issue persists, contact support at devsandbox@redhat.com';
+
+    it("returns a generic error when there's an unexpected error", async () => {
+      // Call the functi
+      mockConfigApi.getString.mockReturnValue('http://api');
+      mockSecureFetchApi.fetch.mockRejectedValue(new Error('Network failure'));
+
+      // Call the function under test and check that it throws a generic error.
+      await expect(client.resetWorkspaces()).rejects.toThrow(
+        expectedGenericError,
+      );
+    });
+
+    it("returns the response's error details when they are present and the status code is not trueish", async () => {
+      const mockResponseErrorFromBackend = {
+        details: 'the back end failed because of x, y and z',
+      };
+
+      // Simulate the back end returns an error.
+      mockConfigApi.getString.mockReturnValue('http://api');
+      mockSecureFetchApi.fetch.mockResolvedValue(
+        createMockResponse({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve(mockResponseErrorFromBackend),
+        }),
+      );
+
+      // Call the function under test and assert that the function under test
+      // threw an exception with the message from the "detail" key of the
+      // response body.
+      await expect(client.resetWorkspaces()).rejects.toThrow(
+        mockResponseErrorFromBackend.details,
+      );
+    });
+
+    it("returns a gener error when the response's error details are not present and the status code is not trueish", async () => {
+      // Simulate the back end returns an error.
+      mockConfigApi.getString.mockReturnValue('http://api');
+      mockSecureFetchApi.fetch.mockResolvedValue(
+        createMockResponse({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({}),
+        }),
+      );
+
+      // Call the function under test and assert that the function under test
+      // threw an exception with the message from the "detail" key of the
+      // response body.
+      await expect(client.resetWorkspaces()).rejects.toThrow(
+        expectedGenericError,
+      );
     });
   });
 });

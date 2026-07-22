@@ -220,6 +220,7 @@ export const PhoneNumberStep: React.FC<PhoneNumberFormProps> = ({
             label="Phone number"
             value={phoneNumber}
             onChange={setPhoneNumber}
+            onCountryChange={setCountry}
             inputComponent={PhoneInputField}
             countrySelectComponent={CountrySelectField}
           />

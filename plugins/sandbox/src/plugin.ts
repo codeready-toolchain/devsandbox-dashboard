@@ -21,6 +21,7 @@ import {
   discoveryApiRef,
   configApiRef,
   oauthRequestApiRef,
+  createComponentExtension,
 } from '@backstage/core-plugin-api';
 import { OAuth2 } from '@backstage/core-app-api';
 import { rootRouteRef } from './routes';
@@ -34,6 +35,8 @@ import {
   kubeApiRef,
   aapApiRef,
   AnsibleBackendClient,
+  openclawApiRef,
+  OpenClawBackendClient,
   secureFetchApiRef,
   SecureFetchClient,
 } from './api';
@@ -104,6 +107,15 @@ export const sandboxPlugin = createPlugin({
       factory: ({ configApi, secureFetchApi }) =>
         new AnsibleBackendClient({ configApi, secureFetchApi }),
     }),
+    createApiFactory({
+      api: openclawApiRef,
+      deps: {
+        configApi: configApiRef,
+        secureFetchApi: secureFetchApiRef,
+      },
+      factory: ({ configApi, secureFetchApi }) =>
+        new OpenClawBackendClient({ configApi, secureFetchApi }),
+    }),
   ],
 });
 
@@ -149,6 +161,23 @@ export const RHSSOSignInPage = sandboxPlugin.provide(
         m => m.RHSSOSignInPage,
       ),
     mountPoint: rootRouteRef,
+  }),
+);
+
+/**
+ * Sandbox menu link to reset the user's workspaces. It opens a modal which
+ * forces the user to confirm the operation.
+ * @public
+ */
+export const SandboxResetWorkspaces = sandboxPlugin.provide(
+  createComponentExtension({
+    name: 'SandboxResetWorkspaces',
+    component: {
+      lazy: () =>
+        import(
+          './components/SandboxResetWorkspaces/SandboxResetWorkspaces'
+        ).then(m => m.default),
+    },
   }),
 );
 

@@ -20,10 +20,7 @@ import Typography from '@mui/material/Typography';
 import CardMedia from '@mui/material/CardMedia';
 import { useTheme } from '@mui/material/styles';
 import { Link } from '@backstage/core-components';
-import {
-  getEddlDataAttributes,
-  useTrackAnalytics,
-} from '../../utils/eddl-utils';
+import { useTrackAnalytics } from '../../utils/eddl-utils';
 
 type SandboxActivitiesCardProps = {
   article: {
@@ -39,7 +36,6 @@ export const SandboxActivitiesCard: React.FC<SandboxActivitiesCardProps> = ({
 }) => {
   const theme = useTheme();
   const trackAnalytics = useTrackAnalytics();
-  const eddlAttributes = getEddlDataAttributes(title, 'Activities');
 
   // Handle activity click for analytics tracking
   const handleActivityClick = async () => {
@@ -51,7 +47,10 @@ export const SandboxActivitiesCard: React.FC<SandboxActivitiesCardProps> = ({
       to={link}
       onClick={handleActivityClick}
       style={{ textDecoration: 'none' }}
-      {...eddlAttributes}
+      data-analytics-linktype="cta"
+      data-analytics-category="Developer Sandbox|Activities"
+      data-analytics-text={title}
+      data-analytics-region="sandbox-activities"
     >
       <Card
         elevation={0}

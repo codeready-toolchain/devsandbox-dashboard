@@ -21,6 +21,7 @@ import { SandboxCatalogBanner } from '../SandboxCatalogBanner';
 import { useSandboxContext } from '../../../hooks/useSandboxContext';
 import { SignupData } from '../../../types/registration';
 import { AnsibleStatus } from '../../../utils/aap-utils';
+import { OpenClawStatus } from '../../../utils/openclaw-utils';
 
 const SandboxContext = React.createContext<{
   loading: boolean;
@@ -34,12 +35,18 @@ const SandboxContext = React.createContext<{
   pendingApproval: false,
 });
 
+const mockAlertApi = { post: jest.fn() };
+
 jest.mock(
   '../../../assets/images/sandbox-banner-image.svg',
   () => 'mocked-image-path',
 );
 jest.mock('../../../hooks/useSandboxContext', () => ({
   useSandboxContext: jest.fn(),
+}));
+jest.mock('@backstage/core-plugin-api', () => ({
+  ...jest.requireActual('@backstage/core-plugin-api'),
+  useApi: () => mockAlertApi,
 }));
 
 describe('SandboxCatalogBanner', () => {
@@ -56,6 +63,7 @@ describe('SandboxCatalogBanner', () => {
     contextValue: Partial<{
       loading: boolean;
       userData?: SignupData;
+      signupError?: string;
       userFound: boolean;
       userReady: boolean;
       verificationRequired: boolean;
@@ -67,6 +75,7 @@ describe('SandboxCatalogBanner', () => {
     mockUseSandboxContext.mockReturnValue({
       loading: false,
       userData: undefined,
+      signupError: undefined,
       userFound: false,
       userReady: false,
       verificationRequired: false,
@@ -81,6 +90,13 @@ describe('SandboxCatalogBanner', () => {
       ansibleUIPassword: '',
       ansibleUILink: undefined,
       handleAAPInstance: jest.fn(),
+      openclawData: undefined,
+      openclawError: null,
+      openclawStatus: OpenClawStatus.NEW,
+      openclawUILink: undefined,
+      handleOpenClawInstance: jest.fn(),
+      deleteOpenClaw: jest.fn(),
+      refetchOpenClaw: jest.fn(),
       userStatus: '',
       ...contextValue,
     });
@@ -396,5 +412,21 @@ describe('SandboxCatalogBanner', () => {
     expect(docLink).toHaveAttribute('rel', 'noopener noreferrer');
 
     jest.restoreAllMocks();
+  });
+
+  it('posts an alert when signupError is set', () => {
+    const errorMessage = 'Access to the Developer Sandbox has been denied';
+    renderWithProviders({ signupError: errorMessage });
+
+    expect(mockAlertApi.post).toHaveBeenCalledWith({
+      message: errorMessage,
+      severity: 'error',
+    });
+  });
+
+  it('does not post an alert when signupError is undefined', () => {
+    renderWithProviders();
+
+    expect(mockAlertApi.post).not.toHaveBeenCalled();
   });
 });

@@ -13,7 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { AAPData, StatusCondition } from '../types';
+import { AAPData } from '../types';
+import { isConditionTrue } from './condition-utils';
 
 export const decode = (str: string): string =>
   Buffer.from(str, 'base64').toString('binary');
@@ -43,19 +44,6 @@ export enum AnsibleStatus {
   NOT_DEPLOYED = 'NOT_DEPLOYED',
 }
 
-/** isConditionTrue checks if a given condition type exists and it's status is set to True */
-const isConditionTrue = (
-  condType: string,
-  conditions: StatusCondition[],
-): [boolean, StatusCondition | null] => {
-  for (const condition of conditions) {
-    if (condition.type === condType && condition.status === 'True') {
-      return [true, condition];
-    }
-  }
-  return [false, null];
-};
-
 export const getReadyCondition = (
   data: AAPData | undefined,
   setError: (errorDetails: string) => void,
@@ -68,13 +56,13 @@ export const getReadyCondition = (
    * Failure    False    * 27 Dec 2024, 18:21  * Failed   unknown playbook failure
    * Running    False     * 27 Dec 2024, 18:37 * Running  Running reconciliation
    */
-  if (!data || data?.items.length === 0) {
+  if (!data || data?.items?.length === 0) {
     return AnsibleStatus.NEW;
   }
 
   if (
-    !data?.items[0].status ||
-    data?.items[0]?.status?.conditions.length === 0
+    !data?.items[0]?.status ||
+    data?.items[0]?.status?.conditions?.length === 0
   ) {
     return AnsibleStatus.UNKNOWN;
   }
@@ -341,12 +329,12 @@ export const AAPObject: string = `
             "replicas":1,
             "resource_requirements":{
                "requests":{
-                  "cpu":"25m",
-                  "memory":"150Mi"
+                  "cpu":"50m",
+                  "memory":"300Mi"
                },
                "limits":{
-                  "cpu":"100m",
-                  "memory":"300Mi"
+                  "cpu":"150m",
+                  "memory":"600Mi"
                }
             }
          }

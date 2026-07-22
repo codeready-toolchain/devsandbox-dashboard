@@ -21,7 +21,9 @@ import { useTheme } from '@mui/material/styles';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import { Header, Link } from '@backstage/core-components';
+import { useApi, configApiRef } from '@backstage/core-plugin-api';
 import { useTrackAnalytics } from '../utils/eddl-utils';
+import { SandboxEnvironment } from '../const';
 
 interface SandboxHeaderProps {
   pageTitle: string;
@@ -29,27 +31,30 @@ interface SandboxHeaderProps {
 
 export const SandboxHeader: React.FC<SandboxHeaderProps> = ({ pageTitle }) => {
   const trackAnalytics = useTrackAnalytics();
+  const configApi = useApi(configApiRef);
+  const environment =
+    configApi.getOptionalString('sandbox.environment') ??
+    SandboxEnvironment.PROD;
 
   useEffect(() => {
-    const initializeAnalytics = async () => {
-      // Check if script is already loaded
-      if (!document.getElementById('trustarc')) {
-        const script = document.createElement('script');
-        script.id = 'trustarc';
-        script.src =
-          '//static.redhat.com/libs/redhat/marketing/latest/trustarc/trustarc.js';
-        document.body.appendChild(script);
-      }
-      if (!document.getElementById('dpal')) {
-        const script = document.createElement('script');
-        script.id = 'dpal';
-        script.src = 'https://www.redhat.com/ma/dpal.js';
-        document.body.appendChild(script);
-      }
-    };
+    if (environment === SandboxEnvironment.DEV) {
+      return;
+    }
 
-    initializeAnalytics();
-  }, []);
+    if (!document.getElementById('trustarc')) {
+      const script = document.createElement('script');
+      script.id = 'trustarc';
+      script.src =
+        '//static.redhat.com/libs/redhat/marketing/latest/trustarc/trustarc.js';
+      document.body.appendChild(script);
+    }
+    if (!document.getElementById('dpal')) {
+      const script = document.createElement('script');
+      script.id = 'dpal';
+      script.src = 'https://www.redhat.com/ma/dpal.js';
+      document.body.appendChild(script);
+    }
+  }, [environment]);
 
   const theme = useTheme();
 
@@ -113,30 +118,33 @@ export const SandboxHeader: React.FC<SandboxHeaderProps> = ({ pageTitle }) => {
       <Box
         sx={{ display: { xs: 'none', sm: 'none', md: 'block', lg: 'block' } }}
       >
-        <Link
-          to="https://www.redhat.com/en/contact"
-          underline="none"
-          target="_blank"
-          onClick={handleContactSalesClick}
+        <Button
+          variant="outlined"
+          color="primary"
+          startIcon={<SupportAgentIcon />}
+          endIcon={<OpenInNewIcon />}
+          sx={{
+            textTransform: 'none',
+            marginRight: theme.spacing(2),
+            border: `1px solid ${theme.palette.primary.main}`,
+            '&:hover': {
+              backgroundColor: 'rgba(25, 118, 210, 0.04)',
+              borderColor: '#1976d2',
+            },
+          }}
         >
-          <Button
-            variant="outlined"
-            color="primary"
-            startIcon={<SupportAgentIcon />}
-            endIcon={<OpenInNewIcon />}
-            sx={{
-              textTransform: 'none',
-              marginRight: theme.spacing(2),
-              border: `1px solid ${theme.palette.primary.main}`,
-              '&:hover': {
-                backgroundColor: 'rgba(25, 118, 210, 0.04)',
-                borderColor: '#1976d2',
-              },
-            }}
+          <Link
+            to="https://www.redhat.com/en/contact"
+            underline="none"
+            target="_blank"
+            onClick={handleContactSalesClick}
+            data-analytics-linktype="cta"
+            data-analytics-text="Contact Red Hat Sales"
+            data-analytics-category="Developer Sandbox|Support"
           >
             Contact Red Hat Sales
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </Box>
     </Header>
   );

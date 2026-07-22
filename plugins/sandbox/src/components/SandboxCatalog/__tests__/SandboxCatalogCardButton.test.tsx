@@ -19,6 +19,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { SandboxCatalogCardButton } from '../SandboxCatalogCardButton';
 import { useSandboxContext } from '../../../hooks/useSandboxContext';
 import { AnsibleStatus } from '../../../utils/aap-utils';
+import { OpenClawStatus } from '../../../utils/openclaw-utils';
 import { Product } from '../productData';
 import * as eddlUtils from '../../../utils/eddl-utils';
 import { wrapInTestApp } from '@backstage/test-utils';
@@ -220,102 +221,42 @@ describe('SandboxCatalogCardButton', () => {
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 
-  describe('CTA Event Pushing', () => {
-    it('should disable automatic tracking and push CTA event when button is clicked (user not found)', () => {
-      // User not found - button should have tracking disabled and push event on click
-      mockUseSandboxContext.mockReturnValue({
-        loading: false,
-        userFound: false,
-        userReady: false,
-        ansibleStatus: AnsibleStatus.UNKNOWN,
-      } as any);
-
-      renderButton();
-
-      const button = screen.getByRole('button');
-
-      // Should have automatic tracking disabled
-      expect(button).toHaveAttribute(
-        'data-analytics-track-by-analytics-manager',
-        'false',
-      );
-
-      // Click the button
-      fireEvent.click(button);
-
-      // Should push CTA event
-      expect(mockTrackAnalytics).toHaveBeenCalledWith(
-        'OpenShift',
-        'Catalog',
-        'https://example.com',
-        '701Pe00000dnCEYIA2',
-        'cta',
-      );
-    });
-
-    it('should disable automatic tracking and push CTA event when link is clicked (user found)', () => {
-      // User found and ready - link should have tracking disabled and push event on click
-      mockUseSandboxContext.mockReturnValue({
-        loading: false,
-        userFound: true,
-        userReady: true,
-        verificationRequired: false,
-        ansibleStatus: AnsibleStatus.UNKNOWN,
-      } as any);
-
-      renderButton();
-
-      const link = screen.getByRole('link');
-
-      // Should have automatic tracking disabled
-      expect(link).toHaveAttribute(
-        'data-analytics-track-by-analytics-manager',
-        'false',
-      );
-
-      // Click the link
-      fireEvent.click(link);
-
-      // Should push CTA event
-      expect(mockTrackAnalytics).toHaveBeenCalledWith(
-        'OpenShift',
-        'Catalog',
-        'https://example.com',
-        '701Pe00000dnCEYIA2',
-        'cta',
-      );
-    });
-
-    it('should push CTA event with correct product details for different products', () => {
+  describe('CTA Event Pushing and Analytics Data Attributes', () => {
+    it('should push CTA event with correct product details and verify analytics data attributes for different products', () => {
       const testCases = [
         {
           id: Product.OPENSHIFT_CONSOLE,
           title: 'OpenShift',
           expectedIntcmp: '701Pe00000dnCEYIA2',
+          expectedLabel: 'Try it',
         },
         {
           id: Product.OPENSHIFT_AI,
           title: 'OpenShift AI',
           expectedIntcmp: '701Pe00000do2uiIAA',
+          expectedLabel: 'Try it',
         },
         {
           id: Product.DEVSPACES,
           title: 'Dev Spaces',
           expectedIntcmp: '701Pe00000doTQCIA2',
+          expectedLabel: 'Try it',
         },
         {
           id: Product.AAP,
           title: 'Ansible Automation Platform',
           expectedIntcmp: '701Pe00000dowQXIAY',
+          expectedLabel: 'Provision',
         },
         {
           id: Product.OPENSHIFT_VIRT,
           title: 'OpenShift Virtualization',
           expectedIntcmp: '701Pe00000dov6IIAQ',
+          expectedLabel: 'Try it',
         },
       ];
 
-      testCases.forEach(({ id, title, expectedIntcmp }) => {
+      testCases.forEach(({ id, title, expectedIntcmp, expectedLabel }) => {
         // Reset mocks for each test case
         jest.clearAllMocks();
 
@@ -329,6 +270,24 @@ describe('SandboxCatalogCardButton', () => {
         const { unmount } = renderButton({ id, title });
 
         const button = screen.getByRole('button');
+
+        // Verify analytics data attributes
+        expect(button).toHaveAttribute('data-analytics-linktype', 'cta');
+        expect(button).toHaveAttribute('data-analytics-text', expectedLabel);
+        expect(button).toHaveAttribute(
+          'data-analytics-category',
+          `Developer Sandbox|Catalog|${title}`,
+        );
+        expect(button).toHaveAttribute(
+          'data-analytics-region',
+          'sandbox-catalog',
+        );
+        expect(button).toHaveAttribute(
+          'data-analytics-offerid',
+          expectedIntcmp,
+        );
+
+        // Verify CTA tracking
         fireEvent.click(button);
 
         expect(mockTrackAnalytics).toHaveBeenCalledWith(
@@ -341,6 +300,46 @@ describe('SandboxCatalogCardButton', () => {
 
         unmount();
       });
+    });
+
+    it('renders Link with all correct analytics data attributes when userFound is true', () => {
+      mockUseSandboxContext.mockReturnValue({
+        loading: false,
+        userFound: true,
+        userReady: true,
+        verificationRequired: false,
+        ansibleStatus: AnsibleStatus.UNKNOWN,
+      } as any);
+
+      renderButton({ title: 'OpenShift Console' });
+
+      const link = screen.getByRole('link');
+      expect(link).toHaveAttribute('data-analytics-linktype', 'cta');
+      expect(link).toHaveAttribute('data-analytics-text', 'Try it');
+      expect(link).toHaveAttribute(
+        'data-analytics-category',
+        'Developer Sandbox|Catalog|OpenShift Console',
+      );
+      expect(link).toHaveAttribute('data-analytics-region', 'sandbox-catalog');
+      expect(link).toHaveAttribute(
+        'data-analytics-offerid',
+        '701Pe00000dnCEYIA2',
+      );
+    });
+  });
+
+  describe('OpenClaw DELETING status', () => {
+    it('does not render the button when OpenClaw is deleting', () => {
+      mockUseSandboxContext.mockReturnValue({
+        loading: false,
+        userFound: true,
+        userReady: true,
+        ansibleStatus: AnsibleStatus.NEW,
+        openclawStatus: OpenClawStatus.DELETING,
+      } as any);
+
+      renderButton({ id: Product.OPENCLAW });
+      expect(screen.queryByRole('button')).not.toBeInTheDocument();
     });
   });
 });

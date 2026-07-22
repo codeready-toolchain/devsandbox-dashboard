@@ -19,6 +19,8 @@ import { ConfigApi } from '@backstage/core-plugin-api';
 import { isValidCountryCode, isValidPhoneNumber } from '../utils/phone-utils';
 import { CommonResponse, SignupData } from '../types';
 import { SecureFetchApi } from './SecureFetchClient';
+import { SandboxEnvironment } from '../const';
+import UserSignupError from './errors/UserSignupError';
 
 export type RegistrationBackendClientOptions = {
   configApi: ConfigApi;
@@ -27,6 +29,7 @@ export type RegistrationBackendClientOptions = {
 
 export interface UIConfig {
   workatoWebHookURL?: string;
+  disabledIntegrations?: string[];
 }
 
 export interface RegistrationService {
@@ -41,6 +44,7 @@ export interface RegistrationService {
   verifyActivationCode(code: string): Promise<void>;
   getSegmentWriteKey(): Promise<string>;
   getUIConfig(): Promise<UIConfig>;
+  resetWorkspaces(): Promise<void>;
 }
 
 export class RegistrationBackendClient implements RegistrationService {
@@ -64,20 +68,28 @@ export class RegistrationBackendClient implements RegistrationService {
     );
   };
 
+  /**
+   * Get the "UserSignup" resource for the current user.
+   * @returns the current user's signup resource or code undefined it is not
+   * found.
+   */
   getSignUpData = async (): Promise<SignupData | undefined> => {
     const signupURL = await this.signupAPI();
     const response = await this.secureFetchApi.fetch(signupURL, {
       method: 'GET',
     });
-    if (!response.ok) {
-      if (response.status === 404) {
-        return undefined;
-      }
-      throw new Error(
-        `Unexpected status code: ${response.status} ${response.statusText}`,
-      );
+    if (response.ok) {
+      return response.json();
     }
-    return response.json();
+
+    // The user signup is not found, we return undefined to signal that it is
+    // safe to create it instead.
+    if (response.status === 404) {
+      return undefined;
+    }
+
+    // At this point we need to signal the user that something went wrong.
+    throw await UserSignupError.fromResponse(response);
   };
 
   getRecaptchaToken = async (): Promise<string> => {
@@ -110,18 +122,23 @@ export class RegistrationBackendClient implements RegistrationService {
   };
 
   signup = async (): Promise<void> => {
-    let token = '';
-    try {
-      token = await this.getRecaptchaToken();
-    } catch (err) {
-      throw new Error(`Error getting recaptcha token: ${err}`);
+    const isDev =
+      (this.configApi.getOptionalString('sandbox.environment') ??
+        SandboxEnvironment.PROD) === SandboxEnvironment.DEV;
+    const headers: Record<string, string> = {};
+
+    if (!isDev) {
+      try {
+        headers['Recaptcha-Token'] = await this.getRecaptchaToken();
+      } catch (err) {
+        throw new Error(`Error getting recaptcha token: ${err}`);
+      }
     }
+
     const signupURL = await this.signupAPI();
     await this.secureFetchApi.fetch(signupURL, {
       method: 'POST',
-      headers: {
-        'Recaptcha-Token': token,
-      },
+      headers,
       body: null,
     });
   };
@@ -235,6 +252,35 @@ export class RegistrationBackendClient implements RegistrationService {
     } catch (error) {
       // Return empty config on any error - UI config is optional
       return {};
+    }
+  };
+
+  // resetWorkspaces calls the registration service to request a workspace
+  // reset for the current user that is logged in in the UI.
+  resetWorkspaces = async (): Promise<void> => {
+    const signupAPI = this.configApi.getString('sandbox.signupAPI');
+    const genericError =
+      'Unable to reset your workspaces. Please, try again later, and if your issue persists, contact support at devsandbox@redhat.com';
+
+    let response: Response;
+    try {
+      response = await this.secureFetchApi.fetch(
+        `${signupAPI}/reset-namespaces`,
+        { method: 'POST' },
+      );
+    } catch {
+      throw new Error(genericError);
+    }
+
+    if (!response.ok) {
+      let details: string | undefined;
+      try {
+        const body: CommonResponse = await response.json();
+        details = body?.details;
+      } catch {
+        // JSON parsing failed — fall through to throw generic error
+      }
+      throw new Error(details || genericError);
     }
   };
 }
